@@ -2,13 +2,73 @@ import { useState } from 'react'
 import Head from 'next/head'
 
 export default function Home() {
-  const [resume, setResume] = useState('')
+  const [file, setFile] = useState<File | null>(null)
   const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0]
+      const fileType = selectedFile.type
+      const fileName = selectedFile.name.toLowerCase()
+      
+      // 验证文件类型
+      if (
+        fileType === 'application/pdf' ||
+        fileType === 'application/msword' ||
+        fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+        fileName.endsWith('.pdf') ||
+        fileName.endsWith('.doc') ||
+        fileName.endsWith('.docx')
+      ) {
+        setFile(selectedFile)
+        setResult('')
+      } else {
+        alert('请上传 PDF 或 Word 文档（.pdf, .doc, .docx）')
+      }
+    }
+  }
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true)
+    } else if (e.type === "dragleave") {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const droppedFile = e.dataTransfer.files[0]
+      const fileType = droppedFile.type
+      const fileName = droppedFile.name.toLowerCase()
+      
+      if (
+        fileType === 'application/pdf' ||
+        fileType === 'application/msword' ||
+        fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+        fileName.endsWith('.pdf') ||
+        fileName.endsWith('.doc') ||
+        fileName.endsWith('.docx')
+      ) {
+        setFile(droppedFile)
+        setResult('')
+      } else {
+        alert('请上传 PDF 或 Word 文档（.pdf, .doc, .docx）')
+      }
+    }
+  }
 
   const analyzeResume = async () => {
-    if (!resume.trim()) {
-      alert('请输入简历内容')
+    if (!file) {
+      alert('请先上传简历文件')
       return
     }
 
@@ -16,12 +76,12 @@ export default function Home() {
     setResult('')
 
     try {
+      const formData = new FormData()
+      formData.append('file', file)
+
       const response = await fetch('/api/analyze', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ resume }),
+        body: formData,
       })
 
       if (!response.ok) {
@@ -36,6 +96,11 @@ export default function Home() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const removeFile = () => {
+    setFile(null)
+    setResult('')
   }
 
   return (
@@ -76,25 +141,84 @@ export default function Home() {
             </p>
           </div>
           
-          {/* 输入区域 */}
+          {/* 文件上传区域 */}
           <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 mb-8 border border-white/20 transform hover:scale-[1.01] transition-all duration-300">
             <div className="flex items-center mb-6">
               <div className="w-1 h-6 bg-gradient-to-b from-cyan-400 to-purple-500 rounded-full mr-3"></div>
               <label className="text-xl font-semibold text-white">
-                粘贴您的简历内容
+                上传简历文档
               </label>
             </div>
             
-            <textarea
-              className="w-full h-72 p-6 bg-slate-900/50 border-2 border-purple-500/30 rounded-xl focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none text-gray-100 placeholder-gray-500 transition-all duration-300 backdrop-blur-sm"
-              placeholder="在此粘贴您的简历内容，AI 将为您进行深度分析..."
-              value={resume}
-              onChange={(e) => setResume(e.target.value)}
-            />
+            {/* 拖拽上传区域 */}
+            <div
+              className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 ${
+                dragActive 
+                  ? 'border-purple-400 bg-purple-500/20' 
+                  : 'border-purple-500/30 bg-slate-900/50 hover:border-purple-500/50'
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <input
+                type="file"
+                id="file-upload"
+                className="hidden"
+                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={handleFileChange}
+              />
+              
+              {!file ? (
+                <label htmlFor="file-upload" className="cursor-pointer">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center">
+                      <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xl text-white font-semibold mb-2">
+                        点击上传或拖拽文件到此处
+                      </p>
+                      <p className="text-gray-400 text-sm">
+                        支持 PDF、Word 文档（.pdf, .doc, .docx）
+                      </p>
+                      <p className="text-gray-500 text-xs mt-2">
+                        文件大小限制：10MB
+                      </p>
+                    </div>
+                  </div>
+                </label>
+              ) : (
+                <div className="flex items-center justify-between bg-slate-800/50 rounded-lg p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-white font-medium">{file.name}</p>
+                      <p className="text-gray-400 text-sm">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={removeFile}
+                    className="text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
             
             <button
               onClick={analyzeResume}
-              disabled={loading}
+              disabled={loading || !file}
               className="mt-6 w-full relative group overflow-hidden bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 hover:from-cyan-600 hover:via-purple-600 hover:to-pink-600 disabled:from-gray-600 disabled:to-gray-600 text-white font-bold py-5 px-8 rounded-xl transition-all duration-300 text-lg shadow-lg hover:shadow-purple-500/50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
             >
               <span className="relative z-10 flex items-center justify-center gap-3">
