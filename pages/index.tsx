@@ -8,6 +8,81 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
 
+  // 格式化并渲染 Markdown 结果
+  const renderFormattedResult = (text: string) => {
+    // 分割成段落
+    const sections = text.split(/\n(?=##)/g)
+    
+    return sections.map((section, idx) => {
+      // 检测标题
+      const h2Match = section.match(/^## (.+)$/m)
+      const h3Match = section.match(/^### (.+)$/m)
+      
+      // 提取内容（去除标题行）
+      let content = section.replace(/^##+ .+$/gm, '').trim()
+      
+      // 处理列表
+      const listItems = content.split(/\n(?=[-•*]\s)/)
+      
+      // 处理加粗文本 **text**
+      const formatText = (txt: string) => {
+        const parts = txt.split(/(\*\*[^*]+\*\*)/g)
+        return parts.map((part, i) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={i} className="text-cyan-300 font-semibold">{part.slice(2, -2)}</strong>
+          }
+          return part
+        })
+      }
+      
+      return (
+        <div key={idx} className="mb-8 last:mb-0">
+          {h2Match && (
+            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-purple-500/30">
+              <div className="w-1.5 h-6 bg-gradient-to-b from-cyan-400 to-purple-500 rounded-full"></div>
+              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-purple-400">
+                {h2Match[1]}
+              </h2>
+            </div>
+          )}
+          
+          {h3Match && (
+            <h3 className="text-xl font-semibold text-purple-300 mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-purple-400"></span>
+              {h3Match[1]}
+            </h3>
+          )}
+          
+          <div className="space-y-3">
+            {listItems.map((item, i) => {
+              const cleanItem = item.replace(/^[-•*]\s*/, '').trim()
+              if (!cleanItem) return null
+              
+              // 检测是否是列表项
+              if (item.match(/^[-•*]\s/)) {
+                return (
+                  <div key={i} className="flex items-start gap-3 group hover:bg-white/5 p-3 rounded-lg transition-all duration-200">
+                    <div className="mt-1.5 w-2 h-2 rounded-full bg-gradient-to-br from-cyan-400 to-purple-500 flex-shrink-0 group-hover:scale-125 transition-transform"></div>
+                    <p className="text-gray-300 leading-relaxed flex-1">
+                      {formatText(cleanItem)}
+                    </p>
+                  </div>
+                )
+              }
+              
+              // 普通段落
+              return cleanItem ? (
+                <p key={i} className="text-gray-300 leading-relaxed pl-5">
+                  {formatText(cleanItem)}
+                </p>
+              ) : null
+            })}
+          </div>
+        </div>
+      )
+    })
+  }
+
   // 岗位选项列表（与 Workflow 配置一致）
   const jobOptions = [
     '金融：银行金融科技类岗位',
@@ -375,18 +450,48 @@ export default function Home() {
 
           {/* 结果展示区域 */}
           {result && (
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20 animate-slide-up">
-              <div className="flex items-center mb-6">
-                <div className="w-1 h-6 bg-gradient-to-b from-green-400 to-cyan-500 rounded-full mr-3"></div>
-                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                  <svg className="w-7 h-7 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <div className="bg-gradient-to-br from-slate-900/90 to-purple-900/50 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-purple-500/30 animate-slide-up overflow-hidden relative">
+              {/* 装饰性背景 */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl"></div>
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl"></div>
+              
+              {/* 头部 */}
+              <div className="flex items-center mb-8 relative z-10">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-400 to-cyan-500 flex items-center justify-center shadow-lg shadow-cyan-500/50">
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-purple-300 to-pink-300">
+                      AI 评估报告
+                    </h2>
+                    <p className="text-gray-400 text-sm mt-1">基于您的简历和目标岗位生成</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const textarea = document.createElement('textarea')
+                    textarea.value = result
+                    document.body.appendChild(textarea)
+                    textarea.select()
+                    document.execCommand('copy')
+                    document.body.removeChild(textarea)
+                    alert('已复制到剪贴板')
+                  }}
+                  className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-medium transition-all duration-200 flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
-                  分析结果
-                </h2>
+                  复制报告
+                </button>
               </div>
-              <div className="prose prose-invert max-w-none text-gray-200 leading-relaxed whitespace-pre-wrap bg-slate-900/30 rounded-xl p-6 border border-purple-500/20">
-                {result}
+              
+              {/* 内容区域 */}
+              <div className="relative z-10 bg-slate-950/50 rounded-xl p-8 border border-purple-500/20 backdrop-blur-sm">
+                {renderFormattedResult(result)}
               </div>
             </div>
           )}
