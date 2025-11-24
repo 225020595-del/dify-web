@@ -38,17 +38,17 @@ export default function Home() {
       return (
         <div key={idx} className="mb-8 last:mb-0">
           {h2Match && (
-            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-purple-500/30">
-              <div className="w-1.5 h-6 bg-gradient-to-b from-cyan-400 to-purple-500 rounded-full"></div>
-              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-purple-400">
+            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-teal-500/30">
+              <div className="w-1.5 h-6 bg-gradient-to-b from-cyan-400 to-teal-500 rounded-full"></div>
+              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-teal-400">
                 {h2Match[1]}
               </h2>
             </div>
           )}
           
           {h3Match && (
-            <h3 className="text-xl font-semibold text-purple-300 mb-3 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-purple-400"></span>
+            <h3 className="text-xl font-semibold text-teal-300 mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-teal-400"></span>
               {h3Match[1]}
             </h3>
           )}
@@ -62,7 +62,7 @@ export default function Home() {
               if (item.match(/^[-•*]\s/)) {
                 return (
                   <div key={i} className="flex items-start gap-3 group hover:bg-white/5 p-3 rounded-lg transition-all duration-200">
-                    <div className="mt-1.5 w-2 h-2 rounded-full bg-gradient-to-br from-cyan-400 to-purple-500 flex-shrink-0 group-hover:scale-125 transition-transform"></div>
+                    <div className="mt-1.5 w-2 h-2 rounded-full bg-gradient-to-br from-cyan-400 to-teal-500 flex-shrink-0 group-hover:scale-125 transition-transform"></div>
                     <p className="text-gray-300 leading-relaxed flex-1">
                       {formatText(cleanItem)}
                     </p>
@@ -366,26 +366,26 @@ export default function Home() {
       </Head>
       
       {/* 背景动画层 */}
-      <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-hidden">
+      <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-teal-900 to-slate-900 overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDE2YzAtMS4xLjktMiAyLTJzMiAuOSAyIDItLjkgMi0yIDItMi0uOS0yLTJ6bS0yMCAwYzAtMS4xLjktMiAyLTJzMiAuOSAyIDItLjkgMi0yIDItMi0uOS0yLTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-20"></div>
         
         {/* 渐变光效 */}
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-teal-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+        <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-emerald-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
 
       <main className="relative min-h-screen py-12 px-4 backdrop-blur-sm">
         <div className="max-w-5xl mx-auto">
           {/* 头部标题 */}
           <div className="text-center mb-12 animate-fade-in">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 mb-6 shadow-lg shadow-purple-500/50">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-cyan-500 to-teal-500 mb-6 shadow-lg shadow-teal-500/50">
               <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
             <h1 className="text-5xl md:text-6xl font-bold text-white mb-4 tracking-tight">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400">
                 AI 简历分析助手
               </span>
             </h1>
@@ -397,7 +397,7 @@ export default function Home() {
           {/* 文件上传区域 */}
           <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 mb-8 border border-white/20 transform hover:scale-[1.01] transition-all duration-300">
             <div className="flex items-center mb-6">
-              <div className="w-1 h-6 bg-gradient-to-b from-cyan-400 to-purple-500 rounded-full mr-3"></div>
+              <div className="w-1 h-6 bg-gradient-to-b from-cyan-400 to-teal-500 rounded-full mr-3"></div>
               <label className="text-xl font-semibold text-white">
                 上传简历文档
               </label>
@@ -409,7 +409,7 @@ export default function Home() {
               <select
                 value={jobSelection}
                 onChange={(e) => setJobSelection(e.target.value)}
-                className="w-full p-4 bg-slate-900/50 border-2 border-purple-500/30 rounded-xl focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-gray-100 transition-all duration-300"
+                className="w-full p-4 bg-slate-900/50 border-2 border-teal-500/30 rounded-xl focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 text-gray-100 transition-all duration-300"
               >
                 <option value="">-- 请选择岗位 --</option>
                 {jobOptions.map((job, index) => (
@@ -422,8 +422,8 @@ export default function Home() {
             <div
               className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 ${
                 dragActive 
-                  ? 'border-purple-400 bg-purple-500/20' 
-                  : 'border-purple-500/30 bg-slate-900/50 hover:border-purple-500/50'
+                  ? 'border-teal-400 bg-teal-500/20' 
+                  : 'border-teal-500/30 bg-slate-900/50 hover:border-teal-500/50'
               }`}
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
@@ -441,7 +441,7 @@ export default function Home() {
               {!file ? (
                 <label htmlFor="file-upload" className="cursor-pointer">
                   <div className="flex flex-col items-center gap-4">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center">
                       <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
@@ -487,7 +487,7 @@ export default function Home() {
             <button
               onClick={analyzeResume}
               disabled={loading || !file || !jobSelection}
-              className="mt-6 w-full relative group overflow-hidden bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 hover:from-cyan-600 hover:via-purple-600 hover:to-pink-600 disabled:from-gray-600 disabled:to-gray-600 text-white font-bold py-5 px-8 rounded-xl transition-all duration-300 text-lg shadow-lg hover:shadow-purple-500/50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
+              className="mt-6 w-full relative group overflow-hidden bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-600 hover:via-teal-600 hover:to-emerald-600 disabled:from-gray-600 disabled:to-gray-600 text-white font-bold py-5 px-8 rounded-xl transition-all duration-300 text-lg shadow-lg hover:shadow-teal-500/50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
             >
               <span className="relative z-10 flex items-center justify-center gap-3">
                 {loading ? (
@@ -513,9 +513,9 @@ export default function Home() {
 
           {/* 结果展示区域 */}
           {result && (
-            <div className="bg-gradient-to-br from-slate-900/90 to-purple-900/50 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-purple-500/30 animate-slide-up overflow-hidden relative">
+            <div className="bg-gradient-to-br from-slate-900/90 to-teal-900/50 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-teal-500/30 animate-slide-up overflow-hidden relative">
               {/* 装饰性背景 */}
-              <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl"></div>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl"></div>
               <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl"></div>
               
               {/* 头部 */}
@@ -527,7 +527,7 @@ export default function Home() {
                     </svg>
                   </div>
                   <div>
-                    <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-purple-300 to-pink-300">
+                    <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-teal-300 to-emerald-300">
                       AI 评估报告
                     </h2>
                     <p className="text-gray-400 text-sm mt-1">基于您的简历和目标岗位生成</p>
@@ -553,7 +553,7 @@ export default function Home() {
               </div>
               
               {/* 内容区域 */}
-              <div className="relative z-10 bg-slate-950/50 rounded-xl p-8 border border-purple-500/20 backdrop-blur-sm">
+              <div className="relative z-10 bg-slate-950/50 rounded-xl p-8 border border-teal-500/20 backdrop-blur-sm">
                 {renderFormattedResult(result)}
               </div>
             </div>
@@ -573,7 +573,7 @@ export default function Home() {
               </div>
               
               <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:bg-white/10 transition-all duration-300 transform hover:scale-105">
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mb-4">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                   </svg>
