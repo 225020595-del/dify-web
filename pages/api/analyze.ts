@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import formidable from 'formidable'
 import fs from 'fs'
+import FormData from 'form-data'
 
 type Data = {
   result?: string
@@ -41,31 +42,36 @@ export default async function handler(
       return res.status(400).json({ error: '请上传文件' })
     }
 
-    // 读取文件内容
-    const fileBuffer = fs.readFileSync(file.filepath)
+    // 使用 form-data 创建表单
     const formData = new FormData()
-    
-    // 创建 Blob 并添加到 FormData
-    const blob = new Blob([fileBuffer], { type: file.mimetype || 'application/octet-stream' })
-    formData.append('file', blob, file.originalFilename || 'resume.pdf')
+    const fileStream = fs.createReadStream(file.filepath)
+    formData.append('file', fileStream, {
+      filename: file.originalFilename || 'resume.pdf',
+      contentType: file.mimetype || 'application/pdf',
+    })
+    formData.append('user', 'user-' + Date.now())
 
     // 调用 Dify 文件上传 API
     const uploadResponse = await fetch(`${apiUrl}/files/upload`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
+        ...formData.getHeaders(),
       },
-      body: formData,
+      body: formData as any,
     })
 
     if (!uploadResponse.ok) {
-      throw new Error(`File upload failed: ${uploadResponse.statusText}`)
+      const errorText = await uploadResponse.text()
+      console.error('Upload error:', errorText)
+      throw new Error(`File upload failed: ${uploadResponse.status} - ${errorText}`)
     }
 
     const uploadData = await uploadResponse.json()
+    console.log('Upload success:', uploadData)
     const fileId = uploadData.id
 
-    // 使用文件 ID 调用 completion API
+    // 使用文件 ID 调用 chat API
     const response = await fetch(`${apiUrl}/chat-messages`, {
       method: 'POST',
       headers: {
@@ -88,10 +94,13 @@ export default async function handler(
     })
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`)
+      const errorText = await response.text()
+      console.error('Chat error:', errorText)
+      throw new Error(`API request failed: ${response.status} - ${errorText}`)
     }
 
     const data = await response.json()
+    console.log('Chat response:', data)
     const result = data.answer || data.result || '未获取到分析结果'
 
     // 清理临时文件
