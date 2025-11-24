@@ -64,22 +64,22 @@ export default function Home() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0]
-      const fileType = selectedFile.type
       const fileName = selectedFile.name.toLowerCase()
       
-      // 验证文件类型
-      if (
-        fileType === 'application/pdf' ||
-        fileType === 'application/msword' ||
-        fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-        fileName.endsWith('.pdf') ||
-        fileName.endsWith('.doc') ||
-        fileName.endsWith('.docx')
-      ) {
+      // 支持的文档格式（与 Dify Workflow 配置一致）
+      const supportedExtensions = [
+        '.txt', '.md', '.mdx', '.markdown', '.pdf', '.html', 
+        '.xlsx', '.xls', '.doc', '.docx', '.csv', '.eml', 
+        '.msg', '.pptx', '.ppt', '.xml', '.epub'
+      ]
+      
+      const isSupported = supportedExtensions.some(ext => fileName.endsWith(ext))
+      
+      if (isSupported) {
         setFile(selectedFile)
         setResult('')
       } else {
-        alert('请上传 PDF 或 Word 文档（.pdf, .doc, .docx）')
+        alert('请上传支持的文档格式：PDF、Word、Excel、PowerPoint、Markdown、TXT 等')
       }
     }
   }
@@ -101,21 +101,22 @@ export default function Home() {
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const droppedFile = e.dataTransfer.files[0]
-      const fileType = droppedFile.type
       const fileName = droppedFile.name.toLowerCase()
       
-      if (
-        fileType === 'application/pdf' ||
-        fileType === 'application/msword' ||
-        fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-        fileName.endsWith('.pdf') ||
-        fileName.endsWith('.doc') ||
-        fileName.endsWith('.docx')
-      ) {
+      // 支持的文档格式
+      const supportedExtensions = [
+        '.txt', '.md', '.mdx', '.markdown', '.pdf', '.html', 
+        '.xlsx', '.xls', '.doc', '.docx', '.csv', '.eml', 
+        '.msg', '.pptx', '.ppt', '.xml', '.epub'
+      ]
+      
+      const isSupported = supportedExtensions.some(ext => fileName.endsWith(ext))
+      
+      if (isSupported) {
         setFile(droppedFile)
         setResult('')
       } else {
-        alert('请上传 PDF 或 Word 文档（.pdf, .doc, .docx）')
+        alert('请上传支持的文档格式：PDF、Word、Excel、PowerPoint、Markdown、TXT 等')
       }
     }
   }
@@ -295,7 +296,7 @@ export default function Home() {
                 type="file"
                 id="file-upload"
                 className="hidden"
-                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                accept=".pdf,.doc,.docx,.txt,.md,.xlsx,.xls,.pptx,.ppt,.html,.csv,.xml,.epub"
                 onChange={handleFileChange}
               />
               
@@ -312,7 +313,7 @@ export default function Home() {
                         点击上传或拖拽文件到此处
                       </p>
                       <p className="text-gray-400 text-sm">
-                        支持 PDF、Word 文档（.pdf, .doc, .docx）
+                        支持 PDF、Word、Excel、PowerPoint、Markdown、TXT 等文档格式
                       </p>
                       <p className="text-gray-500 text-xs mt-2">
                         文件大小限制：10MB
