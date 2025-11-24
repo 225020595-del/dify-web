@@ -27,8 +27,9 @@ npm run dev
 1. 推送代码到 GitHub
 2. 在 [Vercel](https://vercel.com) 导入项目
 3. 配置环境变量：
-   - `DIFY_API_URL`: 你的 Dify API 地址
-   - `DIFY_API_KEY`: 你的 Dify API 密钥
+   - `NEXT_PUBLIC_APP_ID`: 你的 Dify 应用 ID
+   - `NEXT_PUBLIC_APP_KEY`: 你的 Dify 应用 Key
+   - `NEXT_PUBLIC_API_URL`: 你的 Dify API 地址
 4. 点击部署
 
 ## 技术栈

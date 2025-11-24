@@ -19,8 +19,8 @@ export default async function handler(
     return res.status(400).json({ error: '请提供简历内容' })
   }
 
-  const apiUrl = process.env.DIFY_API_URL
-  const apiKey = process.env.DIFY_API_KEY
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  const apiKey = process.env.NEXT_PUBLIC_APP_KEY
 
   if (!apiUrl || !apiKey) {
     return res.status(500).json({ error: '服务器配置错误' })
