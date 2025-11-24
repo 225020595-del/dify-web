@@ -249,7 +249,7 @@ export default function Home() {
       // 添加短暂延迟，确保 Dify 处理完文件
       await new Promise(resolve => setTimeout(resolve, 500))
 
-      // 第二步：调用 Workflow API
+      // 第二步：调用 Workflow API（使用流式响应避免超时）
       const workflowResponse = await fetch(`${apiUrl}/workflows/run`, {
         method: 'POST',
         headers: {
@@ -265,7 +265,7 @@ export default function Home() {
             },
             job_selection: jobSelection,
           },
-          response_mode: 'blocking',
+          response_mode: 'streaming',  // 改为流式响应
           user: userId,
         }),
         // 禁用缓存
@@ -277,14 +277,57 @@ export default function Home() {
         throw new Error(errorData.message || `分析请求失败 (${workflowResponse.status})`)
       }
 
-      const workflowData = await workflowResponse.json()
-      console.log('Workflow 响应:', workflowData)
+      // 处理流式响应
+      const reader = workflowResponse.body?.getReader()
+      const decoder = new TextDecoder()
+      let evaluation = ''
+      let evaluator = ''
       
-      // 从 Workflow 输出中提取结果
-      const evaluation = workflowData.data?.outputs?.text || ''
-      const evaluator = workflowData.data?.outputs?.text_1 || ''
+      if (reader) {
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            
+            const chunk = decoder.decode(value, { stream: true })
+            const lines = chunk.split('\n').filter(line => line.trim().startsWith('data:'))
+            
+            for (const line of lines) {
+              try {
+                const jsonStr = line.replace(/^data:\s*/, '')
+                const data = JSON.parse(jsonStr)
+                
+                // 提取输出内容
+                if (data.event === 'node_finished' && data.data?.outputs) {
+                  if (data.data.outputs.text) evaluation = data.data.outputs.text
+                  if (data.data.outputs.text_1) evaluator = data.data.outputs.text_1
+                }
+                
+                // Workflow 完成
+                if (data.event === 'workflow_finished') {
+                  console.log('Workflow 完成:', data)
+                  break
+                }
+              } catch (e) {
+                // 忽略解析错误，继续处理下一行
+                console.log('解析行失败:', line)
+              }
+            }
+            
+            // 实时更新结果（如果有内容）
+            if (evaluation || evaluator) {
+              const partialResult = evaluation || evaluator 
+                ? `${evaluation}${evaluator ? '\n\n---\n\n' + evaluator : ''}`
+                : ''
+              if (partialResult) setResult(partialResult)
+            }
+          }
+        } finally {
+          reader.releaseLock()
+        }
+      }
       
-      // 组合两个输出
+      // 组合最终输出
       const fullResult = evaluation || evaluator 
         ? `${evaluation}${evaluator ? '\n\n---\n\n' + evaluator : ''}`
         : '未获取到分析结果，请检查 Workflow 配置'
