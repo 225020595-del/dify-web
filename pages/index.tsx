@@ -75,24 +75,74 @@ export default function Home() {
     setLoading(true)
     setResult('')
 
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL
+    const apiKey = process.env.NEXT_PUBLIC_APP_KEY
 
-      const response = await fetch('/api/analyze', {
+    if (!apiUrl || !apiKey) {
+      alert('系统配置错误，请联系管理员')
+      setLoading(false)
+      return
+    }
+
+    try {
+      // 第一步：上传文件到 Dify
+      const uploadFormData = new FormData()
+      uploadFormData.append('file', file)
+      uploadFormData.append('user', 'user-' + Date.now())
+
+      const uploadResponse = await fetch(`${apiUrl}/files/upload`, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: uploadFormData,
       })
 
-      if (!response.ok) {
-        throw new Error('分析失败')
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json()
+        throw new Error(errorData.message || '文件上传失败')
       }
 
-      const data = await response.json()
-      setResult(data.result)
+      const uploadData = await uploadResponse.json()
+      console.log('文件上传成功:', uploadData)
+
+      // 第二步：使用文件 ID 发送消息
+      const chatResponse = await fetch(`${apiUrl}/chat-messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: {},
+          query: '请分析这份简历',
+          response_mode: 'blocking',
+          conversation_id: '',
+          user: 'user-' + Date.now(),
+          files: [
+            {
+              type: 'document',
+              transfer_method: 'local_file',
+              upload_file_id: uploadData.id,
+            }
+          ],
+        }),
+      })
+
+      if (!chatResponse.ok) {
+        const errorData = await chatResponse.json()
+        throw new Error(errorData.message || '分析请求失败')
+      }
+
+      const chatData = await chatResponse.json()
+      console.log('分析响应:', chatData)
+      
+      const analysisResult = chatData.answer || chatData.result || '未获取到分析结果'
+      setResult(analysisResult)
+
     } catch (error) {
       console.error('Error:', error)
-      setResult('分析出错，请稍后重试')
+      setResult('分析出错：' + (error as Error).message + '\n\n请确保：\n1. 已在 Vercel 配置环境变量\n2. Dify 应用支持文件上传\n3. API Key 有效')
     } finally {
       setLoading(false)
     }
