@@ -166,6 +166,7 @@ export default function Home() {
       console.log('文件上传成功:', uploadData)
 
       // 第二步：调用 Workflow API
+      // CV 需要传递完整的文件对象，而不是仅仅 ID
       const workflowResponse = await fetch(`${apiUrl}/workflows/run`, {
         method: 'POST',
         headers: {
@@ -174,8 +175,12 @@ export default function Home() {
         },
         body: JSON.stringify({
           inputs: {
-            CV: uploadData.id,  // 文件ID作为CV输入
-            job_selection: jobSelection,  // 岗位选择
+            CV: {
+              type: 'document',
+              transfer_method: 'local_file',
+              upload_file_id: uploadData.id,
+            },
+            job_selection: jobSelection,
           },
           response_mode: 'blocking',
           user: 'user-' + Date.now(),
