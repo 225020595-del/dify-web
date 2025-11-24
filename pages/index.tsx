@@ -9,80 +9,63 @@ export default function Home() {
   const [dragActive, setDragActive] = useState(false)
 
   // 格式化并渲染 Markdown 结果
+  // 清理并显示纯文本结果（去除 Markdown 符号）
   const renderFormattedResult = (text: string) => {
-    // 分割成段落
-    const sections = text.split(/\n(?=##)/g)
+    // 清理 Markdown 符号
+    let cleanText = text
+      .replace(/^##+ /gm, '')           // 去除标题符号 ## 
+      .replace(/\*\*(.+?)\*\*/g, '$1')  // 去除加粗符号 **text**
+      .replace(/^[-•*]\s+/gm, '• ')     // 统一列表符号为 •
+      .replace(/\n{3,}/g, '\n\n')       // 合并多个空行
     
-    return sections.map((section, idx) => {
-      // 检测标题
-      const h2Match = section.match(/^## (.+)$/m)
-      const h3Match = section.match(/^### (.+)$/m)
-      
-      // 提取内容（去除标题行）
-      let content = section.replace(/^##+ .+$/gm, '').trim()
-      
-      // 处理列表
-      const listItems = content.split(/\n(?=[-•*]\s)/)
-      
-      // 处理加粗文本 **text**
-      const formatText = (txt: string) => {
-        const parts = txt.split(/(\*\*[^*]+\*\*)/g)
-        return parts.map((part, i) => {
-          if (part.startsWith('**') && part.endsWith('**')) {
-            return <strong key={i} className="text-cyan-300 font-semibold">{part.slice(2, -2)}</strong>
-          }
-          return part
-        })
-      }
+    // 按段落分割
+    const paragraphs = cleanText.split('\n\n').filter(p => p.trim())
+    
+    return paragraphs.map((para, idx) => {
+      const lines = para.split('\n').filter(l => l.trim())
       
       return (
-        <div key={idx} className="mb-8 last:mb-0">
-          {h2Match && (
-            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-teal-500/30">
-              <div className="w-1.5 h-6 bg-gradient-to-b from-cyan-400 to-teal-500 rounded-full"></div>
-              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-teal-400">
-                {h2Match[1]}
-              </h2>
-            </div>
-          )}
-          
-          {h3Match && (
-            <h3 className="text-xl font-semibold text-teal-300 mb-3 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-teal-400"></span>
-              {h3Match[1]}
-            </h3>
-          )}
-          
-          <div className="space-y-3">
-            {listItems.map((item, i) => {
-              const cleanItem = item.replace(/^[-•*]\s*/, '').trim()
-              if (!cleanItem) return null
-              
-              // 检测是否是列表项
-              if (item.match(/^[-•*]\s/)) {
-                return (
-                  <div key={i} className="flex items-start gap-3 group hover:bg-white/5 p-3 rounded-lg transition-all duration-200">
-                    <div className="mt-1.5 w-2 h-2 rounded-full bg-gradient-to-br from-cyan-400 to-teal-500 flex-shrink-0 group-hover:scale-125 transition-transform"></div>
-                    <p className="text-gray-300 leading-relaxed flex-1">
-                      {formatText(cleanItem)}
-                    </p>
-                  </div>
-                )
-              }
-              
-              // 普通段落
-              return cleanItem ? (
-                <p key={i} className="text-gray-300 leading-relaxed pl-5">
-                  {formatText(cleanItem)}
-                </p>
-              ) : null
-            })}
-          </div>
+        <div key={idx} className="mb-6 last:mb-0">
+          {lines.map((line, i) => {
+            const trimmed = line.trim()
+            if (!trimmed) return null
+            
+            // 检测是否是列表项
+            if (trimmed.startsWith('• ')) {
+              return (
+                <div key={i} className="flex items-start gap-3 group hover:bg-white/5 p-3 rounded-lg transition-all duration-200 mb-2">
+                  <div className="mt-1.5 w-2 h-2 rounded-full bg-gradient-to-br from-cyan-400 to-teal-500 flex-shrink-0 group-hover:scale-125 transition-transform"></div>
+                  <p className="text-gray-300 leading-relaxed flex-1">
+                    {trimmed.substring(2)}
+                  </p>
+                </div>
+              )
+            }
+            
+            // 普通文本行（可能是标题或段落）
+            const isTitle = i === 0 && lines.length > 1 && !trimmed.includes('：') && trimmed.length < 50
+            
+            if (isTitle) {
+              return (
+                <div key={i} className="flex items-center gap-3 mb-4 pb-3 border-b border-teal-500/30">
+                  <div className="w-1.5 h-6 bg-gradient-to-b from-cyan-400 to-teal-500 rounded-full"></div>
+                  <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-teal-400">
+                    {trimmed}
+                  </h2>
+                </div>
+              )
+            }
+            
+            return (
+              <p key={i} className="text-gray-300 leading-relaxed mb-2">
+                {trimmed}
+              </p>
+            )
+          })}
         </div>
       )
     })
   }
-
   // 岗位选项列表（与 Workflow 配置一致）
   const jobOptions = [
     '金融：银行金融科技类岗位',
