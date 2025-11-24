@@ -219,11 +219,14 @@ export default function Home() {
       return
     }
 
+    // 生成唯一的用户标识符（包含随机数避免缓存）
+    const userId = `user-${Date.now()}-${Math.random().toString(36).substring(7)}`
+
     try {
       // 第一步：上传文件到 Dify
       const uploadFormData = new FormData()
       uploadFormData.append('file', file)
-      uploadFormData.append('user', 'user-' + Date.now())
+      uploadFormData.append('user', userId)
 
       const uploadResponse = await fetch(`${apiUrl}/files/upload`, {
         method: 'POST',
@@ -231,18 +234,22 @@ export default function Home() {
           'Authorization': `Bearer ${apiKey}`,
         },
         body: uploadFormData,
+        // 添加缓存控制
+        cache: 'no-store',
       })
 
       if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json()
-        throw new Error(errorData.message || '文件上传失败')
+        const errorData = await uploadResponse.json().catch(() => ({ message: '文件上传失败' }))
+        throw new Error(errorData.message || `文件上传失败 (${uploadResponse.status})`)
       }
 
       const uploadData = await uploadResponse.json()
       console.log('文件上传成功:', uploadData)
 
+      // 添加短暂延迟，确保 Dify 处理完文件
+      await new Promise(resolve => setTimeout(resolve, 500))
+
       // 第二步：调用 Workflow API
-      // CV 需要传递完整的文件对象，而不是仅仅 ID
       const workflowResponse = await fetch(`${apiUrl}/workflows/run`, {
         method: 'POST',
         headers: {
@@ -259,13 +266,15 @@ export default function Home() {
             job_selection: jobSelection,
           },
           response_mode: 'blocking',
-          user: 'user-' + Date.now(),
+          user: userId,
         }),
+        // 禁用缓存
+        cache: 'no-store',
       })
 
       if (!workflowResponse.ok) {
-        const errorData = await workflowResponse.json()
-        throw new Error(errorData.message || '分析请求失败')
+        const errorData = await workflowResponse.json().catch(() => ({ message: '分析请求失败' }))
+        throw new Error(errorData.message || `分析请求失败 (${workflowResponse.status})`)
       }
 
       const workflowData = await workflowResponse.json()
@@ -276,13 +285,24 @@ export default function Home() {
       const evaluator = workflowData.data?.outputs?.text_1 || ''
       
       // 组合两个输出
-      const fullResult = `# AI 简历评估报告\n\n${evaluation}\n\n---\n\n# 评估质量检查\n\n${evaluator}`
+      const fullResult = evaluation || evaluator 
+        ? `${evaluation}${evaluator ? '\n\n---\n\n' + evaluator : ''}`
+        : '未获取到分析结果，请检查 Workflow 配置'
       
-      setResult(fullResult || '未获取到分析结果，请检查 Workflow 配置')
+      setResult(fullResult)
 
     } catch (error) {
       console.error('Error:', error)
-      setResult('分析出错：' + (error as Error).message + '\n\n请确保：\n1. 已在 Vercel 配置环境变量\n2. Dify Workflow 支持文件上传\n3. API Key 有效且有权限')
+      const errorMessage = (error as Error).message
+      
+      // 更详细的错误提示
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        setResult('❌ 网络连接失败\n\n可能原因：\n• 网络不稳定或被防火墙拦截\n• Dify API 服务暂时不可用\n• CORS 跨域问题\n\n建议：\n1. 检查网络连接\n2. 稍后重试\n3. 查看浏览器控制台获取详细错误信息')
+      } else if (errorMessage.includes('401') || errorMessage.includes('403')) {
+        setResult('❌ 权限验证失败\n\n请确保：\n• API Key 正确且有效\n• API Key 有访问该 Workflow 的权限\n• 在 Vercel 正确配置了环境变量')
+      } else {
+        setResult(`❌ 分析出错：${errorMessage}\n\n请确保：\n1. 已在 Vercel 配置环境变量\n2. Dify Workflow 支持文件上传\n3. API Key 有效且有权限\n4. 网络连接正常`)
+      }
     } finally {
       setLoading(false)
     }
