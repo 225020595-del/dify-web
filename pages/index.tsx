@@ -3,9 +3,63 @@ import Head from 'next/head'
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null)
+  const [jobSelection, setJobSelection] = useState('')
   const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
+
+  // 岗位选项列表（与 Workflow 配置一致）
+  const jobOptions = [
+    '金融：银行金融科技类岗位',
+    '金融：银行产品与研发类岗位',
+    '金融：银行客户服务与销售岗',
+    '金融：银行运营与支持岗',
+    '金融：银行信贷与投资岗',
+    '金融：银行风险管理岗',
+    '金融：投行股权承做岗',
+    '金融：机构销售岗',
+    '金融：资管固收投资助理',
+    '金融：研究助理岗',
+    '金融：投资研究岗',
+    '金融：产品研发岗',
+    '金融：风险控制岗',
+    '金融：量化交易员',
+    '金融：基金运营岗',
+    '金融：精算师',
+    '金融：保险产品开发',
+    '金融：核保核赔岗',
+    '金融：保险投资岗',
+    '快消：快消市场销售管培生',
+    '快消：快消HR',
+    '快消：快消产品供应链管培生',
+    '快消：快消技术支持岗',
+    '快消：快消品牌管理',
+    '快消：快消产品研发',
+    '快消：市场调研',
+    '互联网：后端开发工程师',
+    '互联网：前端开发工程师',
+    '互联网：移动端开发工程师',
+    '互联网：算法工程师',
+    '互联网：测试开发工程师',
+    '互联网：功能产品经理',
+    '互联网：策略产品经理',
+    '互联网：商业化产品经理',
+    '互联网：AI产品经理',
+    '互联网：UI设计师',
+    '互联网：交互设计师',
+    '互联网：数据科学家',
+    '互联网：商业分析师（BA/DS）',
+    '互联网：电商运营',
+    '互联网：内容运营',
+    '互联网：产品运营',
+    '互联网：市场营销',
+    '互联网：用户研究',
+    '互联网：投资分析师',
+    '互联网：风险策略分析师',
+    '互联网：人力资源',
+    '互联网：行政专员',
+    '互联网：战略分析师',
+  ]
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -72,6 +126,11 @@ export default function Home() {
       return
     }
 
+    if (!jobSelection) {
+      alert('请选择目标岗位')
+      return
+    }
+
     setLoading(true)
     setResult('')
 
@@ -115,11 +174,8 @@ export default function Home() {
         },
         body: JSON.stringify({
           inputs: {
-            file: {
-              type: 'document',
-              transfer_method: 'local_file',
-              upload_file_id: uploadData.id,
-            }
+            CV: uploadData.id,  // 文件ID作为CV输入
+            job_selection: jobSelection,  // 岗位选择
           },
           response_mode: 'blocking',
           user: 'user-' + Date.now(),
@@ -134,16 +190,18 @@ export default function Home() {
       const workflowData = await workflowResponse.json()
       console.log('Workflow 响应:', workflowData)
       
-      // Workflow 的响应在 data.outputs 中
-      const analysisResult = workflowData.data?.outputs?.result || 
-                            workflowData.data?.outputs?.text || 
-                            JSON.stringify(workflowData.data?.outputs || {}, null, 2) ||
-                            '未获取到分析结果'
-      setResult(analysisResult)
+      // 从 Workflow 输出中提取结果
+      const evaluation = workflowData.data?.outputs?.text || ''
+      const evaluator = workflowData.data?.outputs?.text_1 || ''
+      
+      // 组合两个输出
+      const fullResult = `# AI 简历评估报告\n\n${evaluation}\n\n---\n\n# 评估质量检查\n\n${evaluator}`
+      
+      setResult(fullResult || '未获取到分析结果，请检查 Workflow 配置')
 
     } catch (error) {
       console.error('Error:', error)
-      setResult('分析出错：' + (error as Error).message + '\n\n请确保：\n1. 已在 Vercel 配置环境变量\n2. Dify 应用支持文件上传\n3. API Key 有效')
+      setResult('分析出错：' + (error as Error).message + '\n\n请确保：\n1. 已在 Vercel 配置环境变量\n2. Dify Workflow 支持文件上传\n3. API Key 有效且有权限')
     } finally {
       setLoading(false)
     }
@@ -199,6 +257,21 @@ export default function Home() {
               <label className="text-xl font-semibold text-white">
                 上传简历文档
               </label>
+            </div>
+            
+            {/* 岗位选择下拉框 */}
+            <div className="mb-6">
+              <label className="block text-white font-medium mb-3">选择目标岗位：</label>
+              <select
+                value={jobSelection}
+                onChange={(e) => setJobSelection(e.target.value)}
+                className="w-full p-4 bg-slate-900/50 border-2 border-purple-500/30 rounded-xl focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-gray-100 transition-all duration-300"
+              >
+                <option value="">-- 请选择岗位 --</option>
+                {jobOptions.map((job, index) => (
+                  <option key={index} value={job}>{job}</option>
+                ))}
+              </select>
             </div>
             
             {/* 拖拽上传区域 */}
@@ -269,7 +342,7 @@ export default function Home() {
             
             <button
               onClick={analyzeResume}
-              disabled={loading || !file}
+              disabled={loading || !file || !jobSelection}
               className="mt-6 w-full relative group overflow-hidden bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 hover:from-cyan-600 hover:via-purple-600 hover:to-pink-600 disabled:from-gray-600 disabled:to-gray-600 text-white font-bold py-5 px-8 rounded-xl transition-all duration-300 text-lg shadow-lg hover:shadow-purple-500/50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
             >
               <span className="relative z-10 flex items-center justify-center gap-3">
