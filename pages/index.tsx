@@ -106,38 +106,39 @@ export default function Home() {
       const uploadData = await uploadResponse.json()
       console.log('文件上传成功:', uploadData)
 
-      // 第二步：使用文件 ID 发送消息
-      const chatResponse = await fetch(`${apiUrl}/chat-messages`, {
+      // 第二步：调用 Workflow API
+      const workflowResponse = await fetch(`${apiUrl}/workflows/run`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          inputs: {},
-          query: '请分析这份简历',
-          response_mode: 'blocking',
-          conversation_id: '',
-          user: 'user-' + Date.now(),
-          files: [
-            {
+          inputs: {
+            file: {
               type: 'document',
               transfer_method: 'local_file',
               upload_file_id: uploadData.id,
             }
-          ],
+          },
+          response_mode: 'blocking',
+          user: 'user-' + Date.now(),
         }),
       })
 
-      if (!chatResponse.ok) {
-        const errorData = await chatResponse.json()
+      if (!workflowResponse.ok) {
+        const errorData = await workflowResponse.json()
         throw new Error(errorData.message || '分析请求失败')
       }
 
-      const chatData = await chatResponse.json()
-      console.log('分析响应:', chatData)
+      const workflowData = await workflowResponse.json()
+      console.log('Workflow 响应:', workflowData)
       
-      const analysisResult = chatData.answer || chatData.result || '未获取到分析结果'
+      // Workflow 的响应在 data.outputs 中
+      const analysisResult = workflowData.data?.outputs?.result || 
+                            workflowData.data?.outputs?.text || 
+                            JSON.stringify(workflowData.data?.outputs || {}, null, 2) ||
+                            '未获取到分析结果'
       setResult(analysisResult)
 
     } catch (error) {
