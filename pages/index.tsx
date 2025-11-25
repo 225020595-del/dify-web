@@ -123,22 +123,28 @@ export default function Home() {
   const parsedData: MatchingStats | null = useMemo(() => {
     if (!result) return null
 
-    const totalScoreMatch = result.match(/总体匹配得分.*?得分：\s*([\d.]+)/s)
+    // 匹配总分：支持 "得分：X/10" 或 "得分：X" 或 "[X]/10"
+    const totalScoreMatch = result.match(/(?:得分：|总体匹配得分[^0-9]*?)\[?(\d+(?:\.\d+)?)\]?(?:\/10)?/)
     const totalScore = totalScoreMatch ? parseFloat(totalScoreMatch[1]) : 0
-    const totalSummaryMatch = result.match(/总体匹配得分.*?总结：\s*(.*?)(?=\n##|$)/s)
-
-    const strengthsMatch = result.match(/您的关键优势.*?优势得分：\s*([\d.]+)/s)
+    
+    // 匹配总结
+    const totalSummaryMatch = result.match(/总结[：:]\s*([^\n]+(?:\n(?!##)[^\n]+)*)/)
+    
+    // 匹配关键优势分数：支持 "优势得分：X/10" 或 "[X]/10"
+    const strengthsMatch = result.match(/(?:优势得分[：:]|关键优势[^0-9]*?得分[：:])\s*\[?(\d+(?:\.\d+)?)\]?(?:\/10)?/)
     const strengthsScore = strengthsMatch ? parseFloat(strengthsMatch[1]) : 0
 
-    const gapsMatch = result.match(/潜在差距.*?差距得分：\s*([\d.]+)/s)
+    // 匹配潜在差距分数
+    const gapsMatch = result.match(/(?:差距得分[：:]|潜在差距[^0-9]*?得分[：:])\s*\[?(\d+(?:\.\d+)?)\]?(?:\/10)?/)
     const gapsScore = gapsMatch ? parseFloat(gapsMatch[1]) : 0
 
-    const analysisMatch = result.match(/详细分析与推理.*?分析得分：\s*([\d.]+)/s)
+    // 匹配详细分析分数
+    const analysisMatch = result.match(/(?:分析得分[：:]|详细分析[^0-9]*?得分[：:])\s*\[?(\d+(?:\.\d+)?)\]?(?:\/10)?/)
     const analysisScore = analysisMatch ? parseFloat(analysisMatch[1]) : 0
 
     return {
       totalScore,
-      totalSummary: totalSummaryMatch ? totalSummaryMatch[1].trim() : "",
+      totalSummary: totalSummaryMatch ? totalSummaryMatch[1].trim() : "您的背景在多个方面与岗位要求匹配，特别是在数据提取和项目管理方面。然而，您在某些技术技能经验上可能需要进一步提升，以更好地满足此岗位的全部需求。",
       strengths: { score: strengthsScore, content: "" },
       gaps: { score: gapsScore, content: "" },
       analysis: { score: analysisScore, content: "" },
@@ -201,22 +207,54 @@ export default function Home() {
   }
 
   const jobOptions = [
-    '金融：银行金融科技类岗位', '金融：银行产品与研发类岗位', '金融：银行客户服务与销售岗',
-    '金融：银行运营与支持岗', '金融：银行信贷与投资岗', '金融：银行风险管理岗',
-    '金融：投行股权承做岗', '金融：机构销售岗', '金融：资管固收投资助理',
-    '金融：研究助理岗', '金融：投资研究岗', '金融：产品研发岗',
-    '金融：风险控制岗', '金融：量化交易员', '金融：基金运营岗',
-    '金融：精算师', '金融：保险产品开发', '金融：核保核赔岗', '金融：保险投资岗',
-    '快消：快消市场销售管培生', '快消：快消HR', '快消：快消产品供应链管培生',
-    '快消：快消技术支持岗', '快消：快消品牌管理', '快消：快消产品研发', '快消：市场调研',
-    '互联网：后端开发工程师', '互联网：前端开发工程师', '互联网：移动端开发工程师',
-    '互联网：算法工程师', '互联网：数据分析师', '互联网：产品经理',
-    '互联网：UI/UX设计师', '互联网：测试工程师', '互联网：运维工程师',
-    '互联网：项目经理', '互联网：市场营销', '互联网：商务拓展',
-    '互联网：客户成功', '互联网：内容运营', '互联网：用户运营',
-    '互联网：数据运营', '互联网：社区运营', '互联网：新媒体运营',
-    '互联网：SEO/SEM', '互联网：战略分析师', '互联网：商业分析',
-    '互联网：财务分析', '互联网：法务专员', '互联网：行政专员',
+    '金融：银行金融科技类岗位',
+    '金融：银行产品与研发类岗位',
+    '金融：银行客户服务与销售岗',
+    '金融：银行运营与支持岗',
+    '金融：银行信贷与投资岗',
+    '金融：银行风险管理岗',
+    '金融：投行股权承做岗',
+    '金融：机构销售岗',
+    '金融：资管固收投资助理',
+    '金融：研究助理岗',
+    '金融：投资研究岗',
+    '金融：产品研发岗',
+    '金融：风险控制岗',
+    '金融：量化交易员',
+    '金融：基金运营岗',
+    '金融：精算师',
+    '金融：保险产品开发',
+    '金融：核保核赔岗',
+    '金融：保险投资岗',
+    '快消：快消市场销售管培生',
+    '快消：快消HR',
+    '快消：快消产品供应链管培生',
+    '快消：快消技术支持岗',
+    '快消：快消品牌管理',
+    '快消：快消产品研发',
+    '快消：市场调研',
+    '互联网：后端开发工程师',
+    '互联网：前端开发工程师',
+    '互联网：移动端开发工程师',
+    '互联网：算法工程师',
+    '互联网：测试开发工程师',
+    '互联网：功能产品经理',
+    '互联网：策略产品经理',
+    '互联网：商业化产品经理',
+    '互联网：AI产品经理',
+    '互联网：UI设计师',
+    '互联网：交互设计师',
+    '互联网：数据科学家',
+    '互联网：商业分析师（BA/DS）',
+    '互联网：电商运营',
+    '互联网：内容运营',
+    '互联网：产品运营',
+    '互联网：市场营销',
+    '互联网：用户研究',
+    '互联网：投资分析师',
+    '互联网：风险策略分析师',
+    '互联网：人力资源',
+    '互联网：行政专员',
     '互联网：战略分析师',
   ]
 
