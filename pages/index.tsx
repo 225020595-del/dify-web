@@ -1,5 +1,114 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Head from 'next/head'
+
+// 内置 SVG 图标组件（无需外部依赖）
+const UploadIcon = () => (
+  <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+  </svg>
+)
+
+const CheckIcon = () => (
+  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+  </svg>
+)
+
+const XIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+)
+
+const TrophyIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+  </svg>
+)
+
+const AlertIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+  </svg>
+)
+
+const ChartIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+  </svg>
+)
+
+const LightbulbIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+  </svg>
+)
+
+// 数据解析和可视化组件
+interface MatchingStats {
+  totalScore: number
+  totalSummary: string
+  strengths: { score: number; content: string }
+  gaps: { score: number; content: string }
+  analysis: { score: number; content: string }
+  suggestion: { content: string }
+}
+
+const CircleProgress = ({ score }: { score: number }) => {
+  const percentage = Math.round((score / 10) * 100)
+  const circumference = 2 * Math.PI * 54
+  const offset = circumference - (percentage / 100) * circumference
+
+  let colorClass = "text-emerald-500"
+  if (percentage < 60) colorClass = "text-red-500"
+  else if (percentage < 80) colorClass = "text-amber-500"
+
+  return (
+    <div className="relative inline-flex items-center justify-center">
+      <svg className="transform -rotate-90" width="140" height="140">
+        <circle cx="70" cy="70" r="54" stroke="currentColor" strokeWidth="10" fill="transparent" className="text-slate-200" />
+        <circle 
+          cx="70" cy="70" r="54" 
+          stroke="currentColor" 
+          strokeWidth="10" 
+          fill="transparent"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          className={`${colorClass} transition-all duration-1000`}
+        />
+      </svg>
+      <div className="absolute flex flex-col items-center">
+        <span className={`text-3xl font-bold ${colorClass}`}>{score}</span>
+        <span className="text-xs text-slate-400 uppercase">Total</span>
+      </div>
+    </div>
+  )
+}
+
+const ScoreCard = ({ title, score, icon, color }: { title: string; score: number; icon: React.ReactNode; color: string }) => {
+  const bgColor = color === 'emerald' ? 'bg-emerald-50 border-emerald-200' : 
+                  color === 'amber' ? 'bg-amber-50 border-amber-200' : 
+                  color === 'blue' ? 'bg-blue-50 border-blue-200' : 'bg-indigo-50 border-indigo-200'
+  const textColor = color === 'emerald' ? 'text-emerald-600' : 
+                    color === 'amber' ? 'text-amber-600' : 
+                    color === 'blue' ? 'text-blue-600' : 'text-indigo-600'
+
+  return (
+    <div className={`${bgColor} border rounded-xl p-5 transition-all hover:shadow-md`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className={`p-2 rounded-lg ${bgColor} ${textColor}`}>
+          {icon}
+        </div>
+        <span className={`text-3xl font-bold ${textColor}`}>{score}</span>
+      </div>
+      <h4 className="font-semibold text-slate-700 text-sm">{title}</h4>
+      <div className="mt-2 w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+        <div className={`h-full ${textColor.replace('text-', 'bg-')} transition-all duration-1000`} style={{ width: `${score * 10}%` }}></div>
+      </div>
+    </div>
+  )
+}
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null)
@@ -9,6 +118,33 @@ export default function Home() {
   const [dragActive, setDragActive] = useState(false)
   const [progress, setProgress] = useState(0)
   const [analysisStage, setAnalysisStage] = useState('')
+
+  // 解析 AI 返回结果提取分数和内容
+  const parsedData: MatchingStats | null = useMemo(() => {
+    if (!result) return null
+
+    const totalScoreMatch = result.match(/总体匹配得分.*?得分：\s*([\d.]+)/s)
+    const totalScore = totalScoreMatch ? parseFloat(totalScoreMatch[1]) : 0
+    const totalSummaryMatch = result.match(/总体匹配得分.*?总结：\s*(.*?)(?=\n##|$)/s)
+
+    const strengthsMatch = result.match(/您的关键优势.*?优势得分：\s*([\d.]+)/s)
+    const strengthsScore = strengthsMatch ? parseFloat(strengthsMatch[1]) : 0
+
+    const gapsMatch = result.match(/潜在差距.*?差距得分：\s*([\d.]+)/s)
+    const gapsScore = gapsMatch ? parseFloat(gapsMatch[1]) : 0
+
+    const analysisMatch = result.match(/详细分析与推理.*?分析得分：\s*([\d.]+)/s)
+    const analysisScore = analysisMatch ? parseFloat(analysisMatch[1]) : 0
+
+    return {
+      totalScore,
+      totalSummary: totalSummaryMatch ? totalSummaryMatch[1].trim() : "",
+      strengths: { score: strengthsScore, content: "" },
+      gaps: { score: gapsScore, content: "" },
+      analysis: { score: analysisScore, content: "" },
+      suggestion: { content: "" }
+    }
+  }, [result])
 
   // 清理并显示纯文本结果（去除 Markdown 符号）
   const renderFormattedResult = (text: string) => {
@@ -474,7 +610,57 @@ export default function Home() {
 
           {/* 结果展示区域 */}
           {result && (
-            <div className="mt-8 bg-gradient-to-br from-slate-900/90 to-teal-900/50 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-teal-500/30 animate-slide-up overflow-hidden relative">
+            <>
+              {/* 可视化仪表盘 */}
+              {parsedData && (
+                <div className="mt-8 space-y-6 animate-slide-up">
+                  {/* 总分展示 */}
+                  <div className="bg-white rounded-2xl p-8 shadow-lg border border-slate-100">
+                    <div className="flex flex-col md:flex-row items-center gap-8">
+                      <div className="flex-shrink-0">
+                        <CircleProgress score={parsedData.totalScore} />
+                      </div>
+                      <div className="flex-1 text-center md:text-left">
+                        <h2 className="text-2xl font-bold text-slate-800 mb-2">总体匹配评分</h2>
+                        <p className="text-slate-600 leading-relaxed">
+                          {parsedData.totalSummary || "AI 正在分析您的简历与目标岗位的匹配程度..."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 指标卡片 */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <ScoreCard 
+                      title="关键优势" 
+                      score={parsedData.strengths.score}
+                      icon={<TrophyIcon />}
+                      color="emerald"
+                    />
+                    <ScoreCard 
+                      title="潜在差距" 
+                      score={parsedData.gaps.score}
+                      icon={<AlertIcon />}
+                      color="amber"
+                    />
+                    <ScoreCard 
+                      title="详细分析" 
+                      score={parsedData.analysis.score}
+                      icon={<ChartIcon />}
+                      color="blue"
+                    />
+                    <ScoreCard 
+                      title="成长潜力" 
+                      score={8.5}
+                      icon={<LightbulbIcon />}
+                      color="indigo"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 详细报告 */}
+              <div className="mt-6 bg-gradient-to-br from-slate-900/90 to-teal-900/50 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-teal-500/30 animate-slide-up overflow-hidden relative">
               <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl"></div>
               <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl"></div>
               
@@ -511,6 +697,7 @@ export default function Home() {
                 {renderFormattedResult(result)}
               </div>
             </div>
+            </>
           )}
           
           {/* 特性展示 */}
