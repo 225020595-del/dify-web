@@ -1,500 +1,671 @@
-import { useState } from 'react'
-import Head from 'next/head'
+import React, { useState, useMemo } from 'react';
+import Head from 'next/head';
+import { 
+  Upload, FileText, CheckCircle, AlertCircle, Briefcase, 
+  ChevronDown, Loader2, Send, MapPin, Calendar, DollarSign, 
+  Star, Trophy, TrendingUp, AlertTriangle, BookOpen, User, 
+  Bell, Settings, LayoutDashboard, X
+} from 'lucide-react';
 
-interface MatchingStats {
-  totalJobs: number
-  averageScore: number
-  highMatch: number
-  goodMatch: number
-  fairMatch: number
-  poorMatch: number
-}
+// --- 配置区域 ---
+const API_KEY = process.env.NEXT_PUBLIC_APP_KEY || "";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.dify.ai/v1";
 
-interface JobMatch {
-  jobTitle: string
-  score: number
-  level: 'high' | 'good' | 'fair' | 'poor'
-  details: string
-}
+// 岗位列表
+const JOB_OPTIONS = [
+  "金融：银行金融科技类岗位", "金融：银行产品与研发类岗位", "金融：银行客户服务与销售岗", 
+  "金融：银行运营与支持岗", "金融：银行信贷与投资岗", "金融：银行风险管理岗", 
+  "金融：投行股权承做岗", "金融：机构销售岗", "金融：资管固收投资助理", 
+  "金融：研究助理岗", "金融：投资研究岗", "金融：产品研发岗", 
+  "金融：风险控制岗", "金融：量化交易员", "金融：基金运营岗", 
+  "金融：精算师", "金融：保险产品开发", "金融：核保核赔岗", 
+  "金融：保险投资岗", "快消：快消市场销售管培生", "快消：快消HR", 
+  "快消：快消产品供应链管培生", "快消：快消技术支持岗", "快消：快消品牌管理", 
+  "快消：快消产品研发", "快消：市场调研", "互联网：后端开发工程师", 
+  "互联网：前端开发工程师", "互联网：移动端开发工程师", "互联网：算法工程师", 
+  "互联网：测试开发工程师", "互联网：功能产品经理", "互联网：策略产品经理", 
+  "互联网：商业化产品经理", "互联网：AI产品经理", "互联网：UI设计师", 
+  "互联网：交互设计师", "互联网：数据科学家", "互联网：商业分析师（BA/DS）", 
+  "互联网：电商运营", "互联网：内容运营", "互联网：产品运营", 
+  "互联网：市场营销", "互联网：用户研究", "互联网：投资分析师", 
+  "互联网：风险策略分析师", "互联网：人力资源", "互联网：行政专员", 
+  "互联网：战略分析师"
+];
+
+// --- 辅助组件 ---
+const CircleProgress = ({ score, total = 10, size = 160, strokeWidth = 12 }) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const normalizedScore = Math.min(Math.max(score, 0), total);
+  const progress = (normalizedScore / total) * circumference;
+  const percentage = Math.round((normalizedScore / total) * 100);
+
+  let colorClass = "text-emerald-500";
+  if (percentage < 60) colorClass = "text-red-500";
+  else if (percentage < 80) colorClass = "text-amber-500";
+
+  return (
+    <div className="relative flex flex-col items-center justify-center">
+      <svg width={size} height={size} className="transform -rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          fill="transparent"
+          className="text-slate-100"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          fill="transparent"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference - progress}
+          strokeLinecap="round"
+          className={`${colorClass} transition-all duration-1000 ease-out`}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+        <span className={`text-4xl font-bold ${colorClass}`}>{normalizedScore}</span>
+        <span className="text-xs text-slate-400 font-medium uppercase tracking-wider mt-1">TOTAL SCORE</span>
+      </div>
+      <div className={`mt-2 text-sm font-bold ${colorClass} bg-opacity-10 px-3 py-1 rounded-full bg-current`}>
+        {percentage}% Match
+      </div>
+    </div>
+  );
+};
+
+const ScoreCard = ({ title, score, content, icon: Icon, color = "emerald" }) => {
+  const getColorClasses = (c) => {
+    switch (c) {
+      case "emerald": return "text-emerald-600 bg-emerald-50 border-emerald-100";
+      case "amber": return "text-amber-600 bg-amber-50 border-amber-100";
+      case "blue": return "text-blue-600 bg-blue-50 border-blue-100";
+      case "indigo": return "text-indigo-600 bg-indigo-50 border-indigo-100";
+      default: return "text-slate-600 bg-slate-50 border-slate-100";
+    }
+  };
+  
+  const classes = getColorClasses(color);
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 mb-4 hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+           <div className={`p-2 rounded-lg ${classes} bg-opacity-20`}>
+              <Icon size={20} className={classes.split(' ')[0]} />
+           </div>
+           <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">{title}</h3>
+        </div>
+        {score !== null && (
+          <div className={`text-2xl font-bold ${classes.split(' ')[0]}`}>
+             {score}<span className="text-sm text-slate-400 font-normal">/10</span>
+          </div>
+        )}
+      </div>
+      <div className="text-slate-600 text-sm leading-relaxed space-y-2">
+        {content}
+      </div>
+    </div>
+  );
+};
 
 export default function Home() {
-  const [file, setFile] = useState<File | null>(null)
-  const [jobSelection, setJobSelection] = useState('')
-  const [result, setResult] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [dragActive, setDragActive] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [analysisStage, setAnalysisStage] = useState('')
-  const [showDashboard, setShowDashboard] = useState(false)
-  const [stats, setStats] = useState<MatchingStats | null>(null)
-  const [jobMatches, setJobMatches] = useState<JobMatch[]>([])
+  const [selectedJob, setSelectedJob] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [result, setResult] = useState("");
+  const [error, setError] = useState("");
+  const [showUploadForm, setShowUploadForm] = useState(true);
+  const [dragActive, setDragActive] = useState(false);
 
-  // 解析 AI 返回的结果并提取统计数据
-  const parseAnalysisResult = (text: string) => {
-    const lines = text.split('\n')
-    const matches: JobMatch[] = []
-    let totalScore = 0
+  const parsedData = useMemo(() => {
+    if (!result) return null;
 
-    // 简单的解析逻辑 - 根据实际 AI 输出格式调整
-    lines.forEach(line => {
-      // 假设格式类似：职位名称 - 匹配度：X分
-      const match = line.match(/(.+?)[：:]\s*(\d+(\.\d+)?)\s*分/)
-      if (match) {
-        const score = parseFloat(match[2])
-        const level = score >= 4 ? 'high' : score >= 3 ? 'good' : score >= 2 ? 'fair' : 'poor'
-        matches.push({
-          jobTitle: match[1].trim(),
-          score,
-          level,
-          details: line
-        })
-        totalScore += score
+    const totalScoreMatch = result.match(/总体匹配得分.*?得分：\s*([\d.]+)/s);
+    const totalScore = totalScoreMatch ? parseFloat(totalScoreMatch[1]) : 0;
+    const totalSummaryMatch = result.match(/总体匹配得分.*?总结：\s*(.*?)(?=\n##|$)/s);
+
+    const strengthsMatch = result.match(/您的关键优势.*?优势得分：\s*([\d.]+)(.*?)(?=\n##|$)/s);
+    const strengthsScore = strengthsMatch ? parseFloat(strengthsMatch[1]) : 0;
+    const strengthsContent = strengthsMatch ? strengthsMatch[2].replace(/优势得分：.*?$/m, '') : "";
+
+    const gapsMatch = result.match(/潜在差距.*?差距得分：\s*([\d.]+)(.*?)(?=\n##|$)/s);
+    const gapsScore = gapsMatch ? parseFloat(gapsMatch[1]) : 0;
+    const gapsContent = gapsMatch ? gapsMatch[2].replace(/差距得分：.*?$/m, '') : "";
+
+    const analysisMatch = result.match(/详细分析与推理.*?分析得分：\s*([\d.]+)(.*?)(?=\n##|$)/s);
+    const analysisScore = analysisMatch ? parseFloat(analysisMatch[1]) : 0;
+    const analysisContent = analysisMatch ? analysisMatch[2].replace(/分析得分：.*?$/m, '') : "";
+
+    const suggestionMatch = result.match(/建议的准备方向(.*?)$/s);
+    const suggestionContent = suggestionMatch ? suggestionMatch[1] : "";
+
+    return {
+      totalScore,
+      totalSummary: totalSummaryMatch ? totalSummaryMatch[1].trim() : "AI 正在生成总结...",
+      strengths: { score: strengthsScore, content: strengthsContent },
+      gaps: { score: gapsScore, content: gapsContent },
+      analysis: { score: analysisScore, content: analysisContent },
+      suggestion: { content: suggestionContent }
+    };
+  }, [result]);
+
+  const renderList = (text) => {
+    if (!text) return <p className="text-slate-400 italic">等待分析...</p>;
+    return text.split('\n').map((line, idx) => {
+      const cleanLine = line.trim();
+      if (!cleanLine) return null;
+      if (cleanLine.startsWith('-') || cleanLine.startsWith('*')) {
+        const content = cleanLine.replace(/^[-*]\s*/, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        return (
+          <div key={idx} className="flex items-start gap-2 mb-2">
+            <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></div>
+            <p dangerouslySetInnerHTML={{ __html: content }}></p>
+          </div>
+        );
       }
-    })
-
-    const stats: MatchingStats = {
-      totalJobs: matches.length,
-      averageScore: matches.length > 0 ? totalScore / matches.length : 0,
-      highMatch: matches.filter(m => m.level === 'high').length,
-      goodMatch: matches.filter(m => m.level === 'good').length,
-      fairMatch: matches.filter(m => m.level === 'fair').length,
-      poorMatch: matches.filter(m => m.level === 'poor').length,
-    }
-
-    setStats(stats)
-    setJobMatches(matches)
-    setShowDashboard(true)
-  }
-
-  const jobOptions = [
-    '金融：银行金融科技类岗位', '金融：银行产品与研发类岗位', '金融：银行客户服务与销售岗',
-    '金融：银行运营与支持岗', '金融：银行信贷与投资岗', '金融：银行风险管理岗',
-    '金融：投行股权承做岗', '金融：机构销售岗', '金融：资管固收投资助理',
-    '金融：研究助理岗', '金融：投资研究岗', '金融：产品研发岗',
-    '金融：风险控制岗', '金融：量化交易员', '金融：基金运营岗',
-    '金融：精算师', '金融：保险产品开发', '金融：核保核赔岗', '金融：保险投资岗',
-    '快消：快消市场销售管培生', '快消：快消HR', '快消：快消产品供应链管培生',
-    '快消：快消技术支持岗', '快消：快消品牌管理', '快消：快消产品研发', '快消：市场调研',
-    '互联网：后端开发工程师', '互联网：前端开发工程师', '互联网：移动端开发工程师',
-    '互联网：算法工程师', '互联网：数据分析师', '互联网：产品经理',
-    '互联网：UI/UX设计师', '互联网：测试工程师', '互联网：运维工程师',
-    '互联网：项目经理', '互联网：市场营销', '互联网：商务拓展',
-    '互联网：客户成功', '互联网：内容运营', '互联网：用户运营',
-    '互联网：数据运营', '互联网：社区运营', '互联网：新媒体运营',
-    '互联网：SEO/SEM', '互联网：战略分析师', '互联网：商业分析',
-    '互联网：财务分析', '互联网：法务专员', '互联网：行政专员',
-  ]
+      return <p key={idx} className="mb-2" dangerouslySetInnerHTML={{ __html: cleanLine.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}></p>;
+    });
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0])
+      setFile(e.target.files[0]);
+      setError("");
     }
-  }
+  };
 
   const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault();
+    e.stopPropagation();
     if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true)
+      setDragActive(true);
     } else if (e.type === 'dragleave') {
-      setDragActive(false)
+      setDragActive(false);
     }
-  }
+  };
 
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0])
+      setFile(e.dataTransfer.files[0]);
+      setError("");
     }
-  }
+  };
 
-  const analyzeResume = async () => {
-    if (!file || !jobSelection) {
-      alert('请上传简历文件并选择目标岗位')
-      return
+  const removeFile = () => {
+    setFile(null);
+    setError("");
+  };
+
+  const handleSubmit = async () => {
+    if (!API_KEY) { 
+      setError("请先配置环境变量：NEXT_PUBLIC_APP_KEY"); 
+      return; 
+    }
+    if (!selectedJob) { 
+      setError("请选择一个岗位"); 
+      return; 
+    }
+    if (!file) { 
+      setError("请上传简历文件"); 
+      return; 
     }
 
-    setLoading(true)
-    setProgress(0)
-    setAnalysisStage('文件上传中...')
-    setResult('')
-    setShowDashboard(false)
+    setError("");
+    setShowUploadForm(false);
+    setIsUploading(true);
+    setResult("");
 
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      setProgress(20)
-      setAnalysisStage('正在解析简历...')
-
-      const uploadResponse = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!uploadResponse.ok) {
-        throw new Error('文件上传失败')
+      // 1. 上传文件到 Dify
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('user', 'web-user');
+      
+      const upRes = await fetch(`${BASE_URL}/files/upload`, {
+        method: 'POST', 
+        headers: { 'Authorization': `Bearer ${API_KEY}` }, 
+        body: formData
+      });
+      
+      if (!upRes.ok) {
+        const errorData = await upRes.json().catch(() => ({}));
+        throw new Error(errorData.message || "文件上传失败，请检查 API Key 和网络连接");
       }
+      
+      const upData = await upRes.json();
 
-      const { file_id } = await uploadResponse.json()
-      setProgress(40)
-      setAnalysisStage('AI 分析中...')
+      setIsUploading(false);
+      setIsProcessing(true);
 
-      const response = await fetch('/api/analyze', {
+      // 2. 执行 Workflow
+      const res = await fetch(`${BASE_URL}/workflows/run`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+        headers: { 
+          'Authorization': `Bearer ${API_KEY}`, 
+          'Content-Type': 'application/json' 
         },
         body: JSON.stringify({
-          file_id,
-          jobSelection,
-          user: `user-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-        }),
-        cache: 'no-store',
-      })
+          inputs: { 
+            "job_selection": selectedJob, 
+            "CV": { 
+              "type": "document", 
+              "transfer_method": "local_file", 
+              "upload_file_id": upData.id 
+            } 
+          },
+          response_mode: "streaming", 
+          user: `user-${Date.now()}-${Math.random().toString(36).substring(7)}`
+        })
+      });
 
-      if (!response.ok) {
-        throw new Error(`分析失败: ${response.status}`)
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "分析流程启动失败");
       }
 
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
-      let fullText = ''
-      let progressValue = 40
+      // 3. 处理流式响应
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
 
       if (reader) {
         while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          const chunk = decoder.decode(value, { stream: true })
-          const lines = chunk.split('\n\n')
-
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || "";
+          
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               try {
-                const data = JSON.parse(line.slice(6))
-                
-                if (data.event === 'agent_message' || data.event === 'message') {
-                  fullText += data.answer
-                  setResult(fullText)
-                  progressValue = Math.min(95, progressValue + 5)
-                  setProgress(progressValue)
+                const data = JSON.parse(line.slice(6));
+                if (data.event === 'text_chunk') {
+                  setResult(prev => prev + data.data.text);
                 }
-
-                if (data.event === 'workflow_finished' || data.event === 'message_end') {
-                  setProgress(100)
-                  setAnalysisStage('分析完成！')
-                  // 解析结果并生成仪表盘
-                  parseAnalysisResult(fullText)
+                if (data.event === 'workflow_finished') {
+                  setIsProcessing(false);
                 }
               } catch (e) {
-                console.log('解析行跳过:', line)
+                // 忽略解析错误
               }
             }
           }
         }
       }
-    } catch (error: any) {
-      setResult(`分析失败: ${error.message}`)
-      setProgress(0)
-      setAnalysisStage('')
-    } finally {
-      setLoading(false)
+    } catch (err: any) {
+      setError(err.message);
+      setIsUploading(false);
+      setIsProcessing(false);
+      setShowUploadForm(true);
     }
-  }
-
-  const copyToClipboard = () => {
-    if (result) {
-      navigator.clipboard.writeText(result)
-        .then(() => alert('✓ 已复制到剪贴板'))
-        .catch(() => alert('✗ 复制失败'))
-    }
-  }
+  };
 
   return (
     <>
       <Head>
-        <title>AI 简历分析系统</title>
+        <title>AI 简历分析系统 - JobMatch AI</title>
         <meta name="description" content="基于 Dify AI 的智能简历分析工具" />
-        <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        {/* 背景装饰 */}
-        <div className="fixed inset-0 bg-[url('/grid.svg')] bg-center opacity-10"></div>
-        <div className="fixed top-0 left-0 w-full h-full">
-          <div className="absolute top-20 left-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
-          <div className="absolute top-40 right-20 w-72 h-72 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
-          <div className="absolute bottom-20 left-1/2 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
-        </div>
-
-        <div className="relative z-10 container mx-auto px-4 py-12">
-          {/* 头部 */}
-          <div className="text-center mb-12">
-            <h1 className="text-5xl md:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 mb-4">
-              🎯 LinkedIn Job Matching Analysis
-            </h1>
-            <p className="text-xl text-gray-300">
-              Personalized Job Matching Results Based on AI Intelligence Assessment
-            </p>
+      <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col md:flex-row">
+        
+        {/* 侧边栏 */}
+        <aside className="w-full md:w-20 lg:w-64 bg-[#1e293b] text-white flex flex-col shrink-0 transition-all duration-300">
+          <div className="h-16 flex items-center justify-center lg:justify-start lg:px-6 border-b border-slate-700/50">
+             <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center shrink-0">
+               <Briefcase size={18} className="text-white" />
+             </div>
+             <span className="ml-3 font-bold text-lg hidden lg:block">JobMatch AI</span>
           </div>
-
-          {/* 仪表盘显示 */}
-          {showDashboard && stats && (
-            <div className="max-w-6xl mx-auto mb-12">
-              {/* 匹配结果概览 */}
-              <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 mb-8 border border-white/20">
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="text-3xl">🎯</span>
-                  <h2 className="text-3xl font-bold text-white">Matching Results Overview</h2>
+          
+          <nav className="flex-1 py-6 px-3 space-y-2 flex flex-row md:flex-col overflow-x-auto md:overflow-visible">
+             <a href="#" className="flex items-center gap-3 px-3 py-3 rounded-lg bg-indigo-600 text-white shadow-lg shadow-indigo-900/50 transition-all shrink-0">
+                <LayoutDashboard size={20} />
+                <span className="hidden lg:block font-medium">Dashboard</span>
+             </a>
+             <a href="#" className="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all shrink-0">
+                <FileText size={20} />
+                <span className="hidden lg:block font-medium">My Resumes</span>
+             </a>
+             <a href="#" className="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all shrink-0">
+                <Settings size={20} />
+                <span className="hidden lg:block font-medium">Settings</span>
+             </a>
+          </nav>
+          
+          <div className="p-4 border-t border-slate-700/50 hidden lg:block">
+             <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
+                   <User size={20} className="text-slate-300" />
                 </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {/* 总职位数 */}
-                  <div className="bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-2xl p-6 border border-purple-400/30">
-                    <div className="text-5xl font-bold text-white mb-2">{stats.totalJobs}</div>
-                    <div className="text-purple-200">Total Jobs</div>
-                  </div>
-
-                  {/* 平均匹配分 */}
-                  <div className="bg-gradient-to-br from-cyan-500/20 to-teal-500/20 rounded-2xl p-6 border border-cyan-400/30">
-                    <div className="text-5xl font-bold text-white mb-2">{stats.averageScore.toFixed(1)}</div>
-                    <div className="text-cyan-200">Average Match Score</div>
-                  </div>
-
-                  {/* 高匹配 */}
-                  <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-2xl p-6 border border-green-400/30">
-                    <div className="text-5xl font-bold text-white mb-2">{stats.highMatch}</div>
-                    <div className="text-green-200">High Match (4-5 pts)</div>
-                  </div>
-
-                  {/* 中等匹配 */}
-                  <div className="bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-2xl p-6 border border-blue-400/30">
-                    <div className="text-5xl font-bold text-white mb-2">{stats.goodMatch}</div>
-                    <div className="text-blue-200">Good Match (3-4 pts)</div>
-                  </div>
-
-                  {/* 一般匹配 */}
-                  <div className="bg-gradient-to-br from-gray-500/20 to-slate-500/20 rounded-2xl p-6 border border-gray-400/30">
-                    <div className="text-5xl font-bold text-white mb-2">{stats.fairMatch}</div>
-                    <div className="text-gray-200">Fair Match (2-3 pts)</div>
-                  </div>
-
-                  {/* 低匹配 */}
-                  <div className="bg-gradient-to-br from-gray-600/20 to-slate-600/20 rounded-2xl p-6 border border-gray-500/30">
-                    <div className="text-5xl font-bold text-white mb-2">{stats.poorMatch}</div>
-                    <div className="text-gray-300">Poor Match (0-2 pts)</div>
-                  </div>
+                <div>
+                   <p className="text-sm font-medium">Demo User</p>
+                   <p className="text-xs text-slate-500">Free Plan</p>
                 </div>
-              </div>
+             </div>
+          </div>
+        </aside>
 
-              {/* 评分权重配置 */}
-              <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20">
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="text-3xl">⚖️</span>
-                  <h2 className="text-3xl font-bold text-white">Scoring Weights Configuration</h2>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-gradient-to-r from-cyan-500/20 to-teal-500/20 rounded-xl p-5 border border-cyan-400/30 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">🔧</span>
-                      <span className="text-white font-medium">Hard Skills</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl font-bold text-cyan-300">0.35</span>
-                      <span className="text-cyan-200">(35%)</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-blue-500/20 to-indigo-500/20 rounded-xl p-5 border border-blue-400/30 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">💼</span>
-                      <span className="text-white font-medium">Experience Level</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl font-bold text-blue-300">0.2</span>
-                      <span className="text-blue-200">(20%)</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-xl p-5 border border-purple-400/30 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">🎯</span>
-                      <span className="text-white font-medium">Domain Knowledge</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl font-bold text-purple-300">0.2</span>
-                      <span className="text-purple-200">(20%)</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-pink-500/20 to-rose-500/20 rounded-xl p-5 border border-pink-400/30 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">🎓</span>
-                      <span className="text-white font-medium">Education & Certifications</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl font-bold text-pink-300">0.07</span>
-                      <span className="text-pink-200">(7%)</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-xl p-5 border border-yellow-400/30 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">💡</span>
-                      <span className="text-white font-medium">Soft Skills</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl font-bold text-yellow-300">0.1</span>
-                      <span className="text-yellow-200">(10%)</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-xl p-5 border border-green-400/30 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">🌐</span>
-                      <span className="text-white font-medium">Language Fluency</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl font-bold text-green-300">0.08</span>
-                      <span className="text-green-200">(8%)</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 上传区域 */}
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-white/20">
-              <div
-                className={`border-3 border-dashed rounded-2xl p-12 text-center transition-all duration-300 ${
-                  dragActive
-                    ? 'border-cyan-400 bg-cyan-500/10 scale-105'
-                    : 'border-gray-400 hover:border-cyan-500 hover:bg-white/5'
-                }`}
-                onDragEnter={handleDrag}
-                onDragLeave={handleDrag}
-                onDragOver={handleDrag}
-                onDrop={handleDrop}
-              >
-                <div className="mb-6">
-                  <svg
-                    className="mx-auto h-16 w-16 text-cyan-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+        {/* 主内容区域 */}
+        <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          
+          {/* 顶部 Header */}
+          <header className="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-4 lg:px-8 shadow-sm z-10">
+             <h2 className="text-lg font-bold text-slate-800">Evaluation Dashboard</h2>
+             <div className="flex items-center gap-4">
+                {!showUploadForm && !isProcessing && (
+                  <button 
+                    onClick={() => { setShowUploadForm(true); setResult(""); setFile(null); }} 
+                    className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-2"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                    />
-                  </svg>
-                </div>
-                
-                <input
-                  type="file"
-                  id="file-upload"
-                  className="hidden"
-                  onChange={handleFileChange}
-                  accept=".pdf,.doc,.docx,.txt"
-                />
-                
-                <label
-                  htmlFor="file-upload"
-                  className="cursor-pointer inline-block bg-gradient-to-r from-cyan-500 to-purple-600 text-white px-8 py-4 rounded-xl font-semibold hover:scale-105 transition-transform shadow-lg"
-                >
-                  选择简历文件
-                </label>
-                
-                <p className="mt-4 text-gray-300">
-                  或拖拽文件到此处
-                </p>
-                
-                {file && (
-                  <div className="mt-4 inline-flex items-center gap-2 bg-cyan-500/20 px-4 py-2 rounded-lg border border-cyan-400/30">
-                    <svg className="h-5 w-5 text-cyan-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" />
-                    </svg>
-                    <span className="text-cyan-300 font-medium">{file.name}</span>
-                  </div>
+                    <Send size={14} /> New Scan
+                  </button>
                 )}
-              </div>
+                <div className="w-px h-6 bg-slate-200 mx-2 hidden sm:block"></div>
+                <Bell size={20} className="text-slate-400 hover:text-slate-600 cursor-pointer hidden sm:block" />
+             </div>
+          </header>
 
-              <div className="mt-8">
-                <label className="block text-cyan-300 font-semibold mb-3 text-lg">
-                  选择目标岗位
-                </label>
-                <select
-                  value={jobSelection}
-                  onChange={(e) => setJobSelection(e.target.value)}
-                  className="w-full px-6 py-4 bg-white/5 border-2 border-gray-600 rounded-xl text-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/50 transition-all"
-                >
-                  <option value="">请选择岗位...</option>
-                  {jobOptions.map((job, index) => (
-                    <option key={index} value={job} className="bg-slate-800">
-                      {job}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <div className="flex-1 overflow-y-auto p-4 lg:p-8 bg-slate-50/50">
+            
+            <div className="max-w-6xl mx-auto space-y-6">
 
-              {loading && (
-                <div className="mt-8">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-cyan-300 font-medium">{analysisStage}</span>
-                    <span className="text-cyan-300 font-bold">{progress}%</span>
-                  </div>
-                  <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 transition-all duration-500 rounded-full"
-                      style={{ width: `${progress}%` }}
-                    ></div>
-                  </div>
+              {/* API Key 警告 */}
+              {!API_KEY && (
+                <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r shadow-sm flex items-center gap-3">
+                   <AlertCircle className="text-amber-500" />
+                   <div>
+                      <h4 className="font-bold text-amber-800 text-sm">需要配置 API Key</h4>
+                      <p className="text-xs text-amber-700">请创建 .env.local 文件并配置 NEXT_PUBLIC_APP_KEY</p>
+                   </div>
                 </div>
               )}
 
-              <button
-                onClick={analyzeResume}
-                disabled={loading || !file || !jobSelection}
-                className="mt-8 w-full bg-gradient-to-r from-cyan-600 to-purple-600 text-white py-5 rounded-xl font-bold text-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-transform shadow-lg"
-              >
-                {loading ? '分析中...' : '🚀 开始 AI 分析'}
-              </button>
-            </div>
+              {/* 上传表单 */}
+              {showUploadForm ? (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-2xl mx-auto mt-10">
+                   <div className="text-center mb-8">
+                      <h2 className="text-2xl font-bold text-slate-800 mb-2">Resume Compatibility Scan</h2>
+                      <p className="text-slate-500">AI-powered analysis matching your profile against industry standards</p>
+                   </div>
 
-            {/* 原始文本结果（可折叠） */}
-            {result && (
-              <div className="mt-8 bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-white/20">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
-                    📄 详细分析报告
-                  </h2>
-                  <button
-                    onClick={copyToClipboard}
-                    className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
-                  >
-                    📋 复制结果
-                  </button>
+                   <div className="space-y-6">
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Target Position</label>
+                        <div className="relative">
+                          <select 
+                            value={selectedJob} 
+                            onChange={(e) => setSelectedJob(e.target.value)}
+                            className="w-full appearance-none pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-medium text-slate-700"
+                          >
+                            <option value="" disabled>Select a role...</option>
+                            {JOB_OPTIONS.map((j, i) => <option key={i} value={j}>{j}</option>)}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-3.5 text-slate-400 pointer-events-none" size={18} />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Upload Resume</label>
+                        <div className="relative group cursor-pointer">
+                           <input 
+                             type="file" 
+                             accept=".pdf,.doc,.docx,.txt" 
+                             onChange={handleFileChange} 
+                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                           />
+                           <div 
+                             className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center transition-all ${
+                               dragActive ? 'border-indigo-500 bg-indigo-50' : 
+                               file ? 'border-emerald-500 bg-emerald-50/50' : 
+                               'border-slate-300 hover:border-indigo-400 hover:bg-slate-50'
+                             }`}
+                             onDragEnter={handleDrag}
+                             onDragLeave={handleDrag}
+                             onDragOver={handleDrag}
+                             onDrop={handleDrop}
+                           >
+                              {file ? (
+                                <div className="flex items-center gap-3 w-full">
+                                  <CheckCircle className="text-emerald-500 w-8 h-8 shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-emerald-700 font-medium block truncate">{file.name}</span>
+                                    <span className="text-xs text-emerald-600">{(file.size / 1024).toFixed(1)} KB</span>
+                                  </div>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); removeFile(); }}
+                                    className="p-1 hover:bg-emerald-200 rounded-full transition-colors shrink-0"
+                                    type="button"
+                                  >
+                                    <X size={18} className="text-emerald-700" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <>
+                                  <Upload className="text-slate-400 mb-2 w-8 h-8 group-hover:text-indigo-400 transition-colors" />
+                                  <span className="text-slate-600 font-medium">Click or Drag to Upload</span>
+                                  <span className="text-xs text-slate-400 mt-1">PDF, DOCX, TXT formats supported</span>
+                                </>
+                              )}
+                           </div>
+                        </div>
+                      </div>
+
+                      {error && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                          <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
+                          <p className="text-red-700 text-sm">{error}</p>
+                        </div>
+                      )}
+
+                      <button 
+                        onClick={handleSubmit} 
+                        disabled={!file || !selectedJob || !API_KEY}
+                        className={`w-full py-3.5 rounded-xl font-bold text-white shadow-lg transition-all transform active:scale-[0.98] ${
+                          (!file || !selectedJob || !API_KEY) ? 
+                          'bg-slate-300 cursor-not-allowed shadow-none' : 
+                          'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'
+                        }`}
+                      >
+                        Analyze Match
+                      </button>
+                   </div>
                 </div>
-                <div className="prose prose-invert max-w-none">
-                  <pre className="whitespace-pre-wrap text-gray-300 leading-relaxed">
-                    {result}
-                  </pre>
+              ) : (
+                // 结果 Dashboard
+                <div className="space-y-6 pb-12">
+                  
+                  {/* Job Header */}
+                  <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-start justify-between gap-6">
+                     <div className="flex gap-4">
+                        <div className="w-16 h-16 rounded-xl bg-slate-900 flex items-center justify-center shrink-0 text-white font-bold text-2xl shadow-md">
+                           {selectedJob.charAt(0)}
+                        </div>
+                        <div>
+                           <h1 className="text-xl md:text-2xl font-bold text-slate-900 leading-tight mb-2">{selectedJob}</h1>
+                           <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-sm text-slate-500">
+                              <span className="flex items-center gap-1"><Briefcase size={14} /> Full-time</span>
+                              <span className="flex items-center gap-1"><MapPin size={14} /> Hybrid / Remote</span>
+                              <span className="flex items-center gap-1"><Calendar size={14} /> Posted 2 days ago</span>
+                              <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-medium text-xs border border-amber-200">Promoted</span>
+                           </div>
+                        </div>
+                     </div>
+                     <div className="flex flex-col items-start md:items-end gap-2">
+                        <div className="text-lg font-bold text-emerald-600 flex items-center gap-1">
+                           <DollarSign size={18} /> Competitive Salary
+                        </div>
+                        <div className="flex gap-2">
+                           <button className="px-4 py-2 bg-indigo-50 text-indigo-700 font-medium rounded-lg text-sm border border-indigo-100 hover:bg-indigo-100 transition-colors">Save Job</button>
+                           <button className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg text-sm shadow hover:bg-indigo-700 transition-colors">Apply Now</button>
+                        </div>
+                     </div>
+                  </div>
+
+                  {/* Score Dashboard */}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                     
+                     <div className="md:col-span-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-8 flex flex-col items-center justify-center relative overflow-hidden">
+                        <div className="absolute top-0 w-full h-2 bg-gradient-to-r from-emerald-400 to-indigo-500"></div>
+                        
+                        {isUploading ? (
+                           <div className="text-center py-10">
+                              <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mx-auto mb-4" />
+                              <p className="text-slate-500 font-medium">Analyzing Resume...</p>
+                           </div>
+                        ) : (
+                           <>
+                              <CircleProgress score={parsedData?.totalScore || 0} />
+                              <div className="mt-6 text-center">
+                                 <p className="text-slate-500 text-sm leading-relaxed px-2">
+                                    {parsedData?.totalSummary || (isProcessing ? "AI 正在计算匹配度..." : "等待分析结果...")}
+                                 </p>
+                              </div>
+                           </>
+                        )}
+                     </div>
+
+                     <div className="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between h-full group hover:border-emerald-300 transition-colors">
+                           <div className="flex items-start justify-between mb-2">
+                              <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                                 <Trophy size={20} />
+                              </div>
+                              <span className="text-2xl font-bold text-emerald-600">{parsedData?.strengths.score || 0}</span>
+                           </div>
+                           <div>
+                              <h4 className="font-bold text-slate-700 mb-1">Key Strengths</h4>
+                              <p className="text-xs text-slate-400">Skills matching job requirements</p>
+                           </div>
+                           <div className="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                              <div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{width: `${(parsedData?.strengths.score || 0) * 10}%`}}></div>
+                           </div>
+                        </div>
+
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between h-full group hover:border-amber-300 transition-colors">
+                           <div className="flex items-start justify-between mb-2">
+                              <div className="p-2 bg-amber-100 text-amber-600 rounded-lg group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                                 <AlertTriangle size={20} />
+                              </div>
+                              <span className="text-2xl font-bold text-amber-600">{parsedData?.gaps.score || 0}</span>
+                           </div>
+                           <div>
+                              <h4 className="font-bold text-slate-700 mb-1">Potential Gaps</h4>
+                              <p className="text-xs text-slate-400">Areas needing improvement</p>
+                           </div>
+                           <div className="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                              <div className="h-full bg-amber-500 rounded-full transition-all duration-1000" style={{width: `${(parsedData?.gaps.score || 0) * 10}%`}}></div>
+                           </div>
+                        </div>
+
+                         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between h-full group hover:border-blue-300 transition-colors">
+                           <div className="flex items-start justify-between mb-2">
+                              <div className="p-2 bg-blue-100 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                 <BookOpen size={20} />
+                              </div>
+                              <span className="text-2xl font-bold text-blue-600">{parsedData?.analysis.score || 0}</span>
+                           </div>
+                           <div>
+                              <h4 className="font-bold text-slate-700 mb-1">Detail Analysis</h4>
+                              <p className="text-xs text-slate-400">Experience & Education fit</p>
+                           </div>
+                           <div className="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                              <div className="h-full bg-blue-500 rounded-full transition-all duration-1000" style={{width: `${(parsedData?.analysis.score || 0) * 10}%`}}></div>
+                           </div>
+                        </div>
+
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between h-full group hover:border-purple-300 transition-colors">
+                           <div className="flex items-start justify-between mb-2">
+                              <div className="p-2 bg-purple-100 text-purple-600 rounded-lg group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                                 <TrendingUp size={20} />
+                              </div>
+                              <span className="text-2xl font-bold text-purple-600">High</span>
+                           </div>
+                           <div>
+                              <h4 className="font-bold text-slate-700 mb-1">Growth Potential</h4>
+                              <p className="text-xs text-slate-400">Estimated based on history</p>
+                           </div>
+                           <div className="mt-3 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                              <div className="h-full bg-purple-400 rounded-full" style={{width: '85%'}}></div>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+
+                  {/* Detailed Breakdown */}
+                  <div className="space-y-4">
+                     <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mt-8">
+                        <Star className="text-indigo-500" size={20} /> Detailed Breakdown
+                     </h3>
+
+                     {isProcessing && !parsedData?.strengths.content && (
+                        <div className="space-y-4 animate-pulse">
+                           <div className="h-32 bg-slate-200 rounded-xl"></div>
+                           <div className="h-32 bg-slate-200 rounded-xl"></div>
+                        </div>
+                     )}
+
+                     {(parsedData?.strengths.content || parsedData?.strengths.score > 0) && (
+                        <ScoreCard 
+                          title="Hard Skills & Strengths" 
+                          score={parsedData.strengths.score} 
+                          content={renderList(parsedData.strengths.content)}
+                          icon={Trophy}
+                          color="emerald"
+                        />
+                     )}
+
+                     {(parsedData?.gaps.content || parsedData?.gaps.score > 0) && (
+                        <ScoreCard 
+                          title="Skill Gaps & Weaknesses" 
+                          score={parsedData.gaps.score} 
+                          content={renderList(parsedData.gaps.content)}
+                          icon={AlertTriangle}
+                          color="amber"
+                        />
+                     )}
+
+                     {(parsedData?.analysis.content || parsedData?.analysis.score > 0) && (
+                        <ScoreCard 
+                          title="Experience Level Analysis" 
+                          score={parsedData.analysis.score} 
+                          content={renderList(parsedData.analysis.content)}
+                          icon={Briefcase}
+                          color="blue"
+                        />
+                     )}
+
+                     {parsedData?.suggestion.content && (
+                        <ScoreCard 
+                          title="Recommended Actions" 
+                          score={null}
+                          content={renderList(parsedData.suggestion.content)}
+                          icon={TrendingUp}
+                          color="indigo"
+                        />
+                     )}
+                  </div>
+
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        </main>
       </div>
     </>
-  )
+  );
 }
