@@ -123,24 +123,41 @@ export default function Home() {
   const parsedData: MatchingStats | null = useMemo(() => {
     if (!result) return null
 
-    // 匹配总分：支持 "得分：X/10" 或 "得分：X" 或 "[X]/10"
-    const totalScoreMatch = result.match(/(?:得分：|总体匹配得分[^0-9]*?)\[?(\d+(?:\.\d+)?)\]?(?:\/10)?/)
-    const totalScore = totalScoreMatch ? parseFloat(totalScoreMatch[1]) : 0
+    // 提取总分 - 寻找第一个出现的 "得分：X" 或 "得分：X/10"
+    let totalScore = 0
+    const scorePattern = /得分[：:]\s*(\d+(?:\.\d+)?)(?:\/10)?/g
+    const allScores = [...result.matchAll(scorePattern)]
+    if (allScores.length > 0) {
+      totalScore = parseFloat(allScores[0][1])
+    }
     
-    // 匹配总结
-    const totalSummaryMatch = result.match(/总结[：:]\s*([^\n]+(?:\n(?!##)[^\n]+)*)/)
+    // 提取总结
+    const totalSummaryMatch = result.match(/总结[：:]\s*([^\n]+(?:\n(?![#\d])[^\n]+)*)/)
     
-    // 匹配关键优势分数：支持 "优势得分：X/10" 或 "[X]/10"
-    const strengthsMatch = result.match(/(?:优势得分[：:]|关键优势[^0-9]*?得分[：:])\s*\[?(\d+(?:\.\d+)?)\]?(?:\/10)?/)
-    const strengthsScore = strengthsMatch ? parseFloat(strengthsMatch[1]) : 0
+    // 提取优势分数 - 第二个得分
+    let strengthsScore = 0
+    if (allScores.length > 1) {
+      strengthsScore = parseFloat(allScores[1][1])
+    }
 
-    // 匹配潜在差距分数
-    const gapsMatch = result.match(/(?:差距得分[：:]|潜在差距[^0-9]*?得分[：:])\s*\[?(\d+(?:\.\d+)?)\]?(?:\/10)?/)
-    const gapsScore = gapsMatch ? parseFloat(gapsMatch[1]) : 0
+    // 提取差距分数 - 第三个得分
+    let gapsScore = 0
+    if (allScores.length > 2) {
+      gapsScore = parseFloat(allScores[2][1])
+    }
 
-    // 匹配详细分析分数
-    const analysisMatch = result.match(/(?:分析得分[：:]|详细分析[^0-9]*?得分[：:])\s*\[?(\d+(?:\.\d+)?)\]?(?:\/10)?/)
-    const analysisScore = analysisMatch ? parseFloat(analysisMatch[1]) : 0
+    // 提取分析分数 - 第四个得分
+    let analysisScore = 0
+    if (allScores.length > 3) {
+      analysisScore = parseFloat(allScores[3][1])
+    }
+
+    // 如果找不到多个分数，尝试从总分计算估值
+    if (allScores.length === 1 && totalScore > 0) {
+      strengthsScore = Math.min(10, totalScore + 1.5)
+      gapsScore = Math.max(0, 10 - totalScore)
+      analysisScore = totalScore
+    }
 
     return {
       totalScore,
