@@ -1,16 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import Head from 'next/head'
 
-// 内置 SVG 图标组件（无需外部依赖）
+// ========== 共用 SVG 图标 ==========
 const UploadIcon = () => (
   <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-  </svg>
-)
-
-const CheckIcon = () => (
-  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
   </svg>
 )
 
@@ -20,31 +14,41 @@ const XIcon = () => (
   </svg>
 )
 
-const TrophyIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-  </svg>
-)
+// ========== 类型定义 ==========
+interface ParsedJD {
+  title: string
+  company: string
+  location: string
+  salary: string
+  experience: string
+  education: string
+  responsibilities: string[]
+  requirements: string[]
+  tags: string[]
+  benefits: string[]
+}
 
-const AlertIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-  </svg>
-)
+interface JobItem {
+  id: string
+  title: string
+  company: string
+  location: string
+  type: string
+  applyUrl?: string
+  referralCode?: string
+  updateDate?: string
+}
 
-const ChartIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-  </svg>
-)
+interface QueryResult {
+  answer: string
+  jobs: JobItem[]
+  sources: Array<{
+    docId: string
+    excerpt: string
+    score: number
+  }>
+}
 
-const LightbulbIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-  </svg>
-)
-
-// 数据解析和可视化组件
 interface MatchingStats {
   totalScore: number
   totalSummary: string
@@ -54,246 +58,167 @@ interface MatchingStats {
   suggestion: { content: string }
 }
 
-const CircleProgress = ({ score }: { score: number }) => {
-  const percentage = Math.round((score / 10) * 100)
-  const circumference = 2 * Math.PI * 54
-  const offset = circumference - (percentage / 100) * circumference
-
-  let colorClass = "text-emerald-500"
-  if (percentage < 60) colorClass = "text-red-500"
-  else if (percentage < 80) colorClass = "text-amber-500"
-
-  return (
-    <div className="relative inline-flex items-center justify-center">
-      <svg className="transform -rotate-90" width="140" height="140">
-        <circle cx="70" cy="70" r="54" stroke="currentColor" strokeWidth="10" fill="transparent" className="text-slate-200" />
-        <circle 
-          cx="70" cy="70" r="54" 
-          stroke="currentColor" 
-          strokeWidth="10" 
-          fill="transparent"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          className={`${colorClass} transition-all duration-1000`}
-        />
-      </svg>
-      <div className="absolute flex flex-col items-center">
-        <span className={`text-3xl font-bold ${colorClass}`}>{score}</span>
-        <span className="text-xs text-slate-400 uppercase">Total</span>
-      </div>
-    </div>
-  )
-}
-
-const ScoreCard = ({ title, score, icon, color }: { title: string; score: number; icon: React.ReactNode; color: string }) => {
-  const bgColor = color === 'emerald' ? 'bg-emerald-50 border-emerald-200' : 
-                  color === 'amber' ? 'bg-amber-50 border-amber-200' : 
-                  color === 'blue' ? 'bg-blue-50 border-blue-200' : 'bg-indigo-50 border-indigo-200'
-  const textColor = color === 'emerald' ? 'text-emerald-600' : 
-                    color === 'amber' ? 'text-amber-600' : 
-                    color === 'blue' ? 'text-blue-600' : 'text-indigo-600'
-
-  return (
-    <div className={`${bgColor} border rounded-xl p-5 transition-all hover:shadow-md`}>
-      <div className="flex items-center justify-between mb-3">
-        <div className={`p-2 rounded-lg ${bgColor} ${textColor}`}>
-          {icon}
-        </div>
-        <span className={`text-3xl font-bold ${textColor}`}>{score}</span>
-      </div>
-      <h4 className="font-semibold text-slate-700 text-sm">{title}</h4>
-      <div className="mt-2 w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-        <div className={`h-full ${textColor.replace('text-', 'bg-')} transition-all duration-1000`} style={{ width: `${score * 10}%` }}></div>
-      </div>
-    </div>
-  )
-}
-
-export default function Home() {
-  const [file, setFile] = useState<File | null>(null)
-  const [jobSelection, setJobSelection] = useState('')
-  const [result, setResult] = useState('')
+// ========== 简历分析组件 ==========
+function ResumeAnalyzer() {
+  const [resumeFile, setResumeFile] = useState<File | null>(null)
+  const [selectedJob, setSelectedJob] = useState('')
+  const [stats, setStats] = useState<MatchingStats | null>(null)
   const [loading, setLoading] = useState(false)
-  const [dragActive, setDragActive] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [analysisStage, setAnalysisStage] = useState('')
 
-  // 解析 AI 返回结果提取分数和内容
-  const parsedData: MatchingStats | null = useMemo(() => {
-    if (!result) return null
-
-    // 提取总分 - 寻找第一个出现的 "得分：X" 或 "得分：X/10"
-    let totalScore = 0
-    const scorePattern = /得分[：:]\s*(\d+(?:\.\d+)?)(?:\/10)?/g
-    const allScores = [...result.matchAll(scorePattern)]
-    if (allScores.length > 0) {
-      totalScore = parseFloat(allScores[0][1])
-    }
-    
-    // 提取总结
-    const totalSummaryMatch = result.match(/总结[：:]\s*([^\n]+(?:\n(?![#\d])[^\n]+)*)/)
-    
-    // 提取优势分数 - 第二个得分
-    let strengthsScore = 0
-    if (allScores.length > 1) {
-      strengthsScore = parseFloat(allScores[1][1])
-    }
-
-    // 提取差距分数 - 第三个得分
-    let gapsScore = 0
-    if (allScores.length > 2) {
-      gapsScore = parseFloat(allScores[2][1])
-    }
-
-    // 提取分析分数 - 第四个得分
-    let analysisScore = 0
-    if (allScores.length > 3) {
-      analysisScore = parseFloat(allScores[3][1])
-    }
-
-    // 如果找不到多个分数，尝试从总分计算估值
-    if (allScores.length === 1 && totalScore > 0) {
-      strengthsScore = Math.min(10, totalScore + 1.5)
-      gapsScore = Math.max(0, 10 - totalScore)
-      analysisScore = totalScore
-    }
-
-    return {
-      totalScore,
-      totalSummary: totalSummaryMatch ? totalSummaryMatch[1].trim() : "您的背景在多个方面与岗位要求匹配，特别是在数据提取和项目管理方面。然而，您在某些技术技能经验上可能需要进一步提升，以更好地满足此岗位的全部需求。",
-      strengths: { score: strengthsScore, content: "" },
-      gaps: { score: gapsScore, content: "" },
-      analysis: { score: analysisScore, content: "" },
-      suggestion: { content: "" }
-    }
-  }, [result])
-
-  // 清理并显示纯文本结果（去除 Markdown 符号）
-  const renderFormattedResult = (text: string) => {
-    let cleanText = text
-      .replace(/^##+ /gm, '')
-      .replace(/\*\*(.+?)\*\*/g, '$1')
-      .replace(/^[-•*]\s+/gm, '• ')
-      .replace(/\n{3,}/g, '\n\n')
-    
-    const paragraphs = cleanText.split('\n\n').filter(p => p.trim())
-    
-    return paragraphs.map((para, idx) => {
-      const lines = para.split('\n').filter(l => l.trim())
-      
-      return (
-        <div key={idx} className="mb-6 last:mb-0">
-          {lines.map((line, i) => {
-            const trimmed = line.trim()
-            if (!trimmed) return null
-            
-            if (trimmed.startsWith('• ')) {
-              return (
-                <div key={i} className="flex items-start gap-3 group hover:bg-white/5 p-3 rounded-lg transition-all duration-200 mb-2">
-                  <div className="mt-1.5 w-2 h-2 rounded-full bg-gradient-to-br from-cyan-400 to-teal-500 flex-shrink-0 group-hover:scale-125 transition-transform"></div>
-                  <p className="text-gray-300 leading-relaxed flex-1">
-                    {trimmed.substring(2)}
-                  </p>
-                </div>
-              )
-            }
-            
-            const isTitle = i === 0 && lines.length > 1 && !trimmed.includes('：') && trimmed.length < 50
-            
-            if (isTitle) {
-              return (
-                <div key={i} className="flex items-center gap-3 mb-4 pb-3 border-b border-teal-500/30">
-                  <div className="w-1.5 h-6 bg-gradient-to-b from-cyan-400 to-teal-500 rounded-full"></div>
-                  <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-teal-400">
-                    {trimmed}
-                  </h2>
-                </div>
-              )
-            }
-            
-            return (
-              <p key={i} className="text-gray-300 leading-relaxed mb-2">
-                {trimmed}
-              </p>
-            )
-          })}
-        </div>
-      )
-    })
-  }
-
-  const jobOptions = [
-    '金融：银行金融科技类岗位',
-    '金融：银行产品与研发类岗位',
-    '金融：银行客户服务与销售岗',
-    '金融：银行运营与支持岗',
-    '金融：银行信贷与投资岗',
-    '金融：银行风险管理岗',
-    '金融：投行股权承做岗',
-    '金融：机构销售岗',
-    '金融：资管固收投资助理',
-    '金融：研究助理岗',
-    '金融：投资研究岗',
-    '金融：产品研发岗',
-    '金融：风险控制岗',
-    '金融：量化交易员',
-    '金融：基金运营岗',
-    '金融：精算师',
-    '金融：保险产品开发',
-    '金融：核保核赔岗',
-    '金融：保险投资岗',
-    '快消：快消市场销售管培生',
-    '快消：快消HR',
-    '快消：快消产品供应链管培生',
-    '快消：快消技术支持岗',
-    '快消：快消品牌管理',
-    '快消：快消产品研发',
-    '快消：市场调研',
-    '互联网：后端开发工程师',
-    '互联网：前端开发工程师',
-    '互联网：移动端开发工程师',
-    '互联网：算法工程师',
-    '互联网：测试开发工程师',
-    '互联网：功能产品经理',
-    '互联网：策略产品经理',
-    '互联网：商业化产品经理',
-    '互联网：AI产品经理',
-    '互联网：UI设计师',
-    '互联网：交互设计师',
-    '互联网：数据科学家',
-    '互联网：商业分析师（BA/DS）',
-    '互联网：电商运营',
-    '互联网：内容运营',
-    '互联网：产品运营',
-    '互联网：市场营销',
-    '互联网：用户研究',
-    '互联网：投资分析师',
-    '互联网：风险策略分析师',
-    '互联网：人力资源',
-    '互联网：行政专员',
-    '互联网：战略分析师',
+  const jobPositions = [
+    'AI工程师', '后端开发', '前端开发', '产品经理', '数据分析师',
+    '算法工程师', '测试工程师', '运维工程师', 'UI设计师', '项目经理'
   ]
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0]
-      const fileName = selectedFile.name.toLowerCase()
-      
-      const supportedExtensions = [
-        '.txt', '.md', '.mdx', '.markdown', '.pdf', '.html', 
-        '.xlsx', '.xls', '.doc', '.docx', '.csv', '.eml', 
-        '.msg', '.pptx', '.ppt', '.xml', '.epub'
-      ]
-      
-      const isSupported = supportedExtensions.some(ext => fileName.endsWith(ext))
-      
-      if (isSupported) {
-        setFile(selectedFile)
-        setResult('')
-      } else {
-        alert('请上传支持的文档格式：PDF、Word、Excel、PowerPoint、Markdown、TXT 等')
-      }
+      setResumeFile(e.target.files[0])
+      setStats(null)
+    }
+  }
+
+  const analyzeResume = async () => {
+    if (!resumeFile || !selectedJob) {
+      alert('请上传简历并选择岗位')
+      return
+    }
+
+    setLoading(true)
+    const formData = new FormData()
+    formData.append('resume', resumeFile)
+    formData.append('position', selectedJob)
+
+    try {
+      const response = await fetch('/api/analyze', { method: 'POST', body: formData })
+      if (!response.ok) throw new Error('分析失败')
+      const data = await response.json()
+      setStats(data.stats)
+    } catch (error) {
+      console.error(error)
+      alert('分析失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const CircleProgress = ({ score }: { score: number }) => {
+    const percentage = Math.round((score / 10) * 100)
+    let colorClass = percentage < 60 ? "text-red-500" : percentage < 80 ? "text-amber-500" : "text-emerald-500"
+    
+    return (
+      <div className="relative inline-flex items-center justify-center">
+        <svg className="w-32 h-32 transform -rotate-90">
+          <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="8" fill="none" className="text-gray-700" />
+          <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="8" fill="none" strokeDasharray={`${2 * Math.PI * 54}`} strokeDashoffset={2 * Math.PI * 54 * (1 - percentage / 100)} className={colorClass} strokeLinecap="round" />
+        </svg>
+        <div className="absolute text-3xl font-bold text-white">{percentage}</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-8">
+      <div className="text-center mb-12">
+        <h1 className="text-5xl font-bold mb-4">
+          <span className="bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">
+            AI 简历智能分析
+          </span>
+        </h1>
+        <p className="text-gray-300 text-lg">上传简历，AI 秒速匹配岗位适配度</p>
+      </div>
+
+      <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20">
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* 上传区域 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-200 mb-3">上传简历</label>
+            <div className="border-2 border-dashed border-gray-400 rounded-xl p-8 text-center bg-white/5 hover:bg-white/10 transition-all cursor-pointer">
+              <input type="file" onChange={handleFileChange} accept=".pdf,.doc,.docx" className="hidden" id="resume-upload" />
+              <label htmlFor="resume-upload" className="cursor-pointer flex flex-col items-center">
+                <UploadIcon />
+                <p className="text-gray-300 mt-4">{resumeFile ? resumeFile.name : '点击或拖拽上传简历'}</p>
+                <p className="text-sm text-gray-400 mt-2">支持 PDF, DOC, DOCX</p>
+              </label>
+            </div>
+          </div>
+
+          {/* 岗位选择 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-200 mb-3">选择目标岗位</label>
+            <div className="grid grid-cols-2 gap-3">
+              {jobPositions.map(job => (
+                <button
+                  key={job}
+                  onClick={() => setSelectedJob(job)}
+                  className={`py-3 px-4 rounded-lg font-medium transition-all ${
+                    selectedJob === job
+                      ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg'
+                      : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                  }`}
+                >
+                  {job}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={analyzeResume}
+          disabled={loading || !resumeFile || !selectedJob}
+          className="mt-8 w-full bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold py-4 rounded-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+        >
+          {loading ? '🔄 AI 分析中...' : '🚀 开始分析'}
+        </button>
+      </div>
+
+      {/* 分析结果 */}
+      {stats && (
+        <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20 space-y-6">
+          <div className="text-center">
+            <CircleProgress score={stats.totalScore} />
+            <h3 className="text-2xl font-bold text-white mt-4">综合匹配度</h3>
+            <p className="text-gray-300 mt-2">{stats.totalSummary}</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="bg-emerald-500/20 border border-emerald-500/50 rounded-xl p-4">
+              <h4 className="font-bold text-emerald-400 mb-2">💪 优势亮点 ({stats.strengths.score}/10)</h4>
+              <p className="text-gray-200 text-sm">{stats.strengths.content}</p>
+            </div>
+            <div className="bg-amber-500/20 border border-amber-500/50 rounded-xl p-4">
+              <h4 className="font-bold text-amber-400 mb-2">⚠️ 能力差距 ({stats.gaps.score}/10)</h4>
+              <p className="text-gray-200 text-sm">{stats.gaps.content}</p>
+            </div>
+            <div className="bg-blue-500/20 border border-blue-500/50 rounded-xl p-4">
+              <h4 className="font-bold text-blue-400 mb-2">📊 深度分析 ({stats.analysis.score}/10)</h4>
+              <p className="text-gray-200 text-sm">{stats.analysis.content}</p>
+            </div>
+          </div>
+
+          <div className="bg-purple-500/20 border border-purple-500/50 rounded-xl p-4">
+            <h4 className="font-bold text-purple-400 mb-2">💡 优化建议</h4>
+            <p className="text-gray-200">{stats.suggestion.content}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ========== JD 解析组件 ==========
+function JDParser() {
+  const [inputText, setInputText] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [parsedJD, setParsedJD] = useState<ParsedJD | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0])
+      setInputText('')
+      setParsedJD(null)
     }
   }
 
@@ -311,484 +236,420 @@ export default function Home() {
     e.preventDefault()
     e.stopPropagation()
     setDragActive(false)
-    
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const droppedFile = e.dataTransfer.files[0]
-      const fileName = droppedFile.name.toLowerCase()
-      
-      const supportedExtensions = [
-        '.txt', '.md', '.mdx', '.markdown', '.pdf', '.html', 
-        '.xlsx', '.xls', '.doc', '.docx', '.csv', '.eml', 
-        '.msg', '.pptx', '.ppt', '.xml', '.epub'
-      ]
-      
-      const isSupported = supportedExtensions.some(ext => fileName.endsWith(ext))
-      
-      if (isSupported) {
-        setFile(droppedFile)
-        setResult('')
-      } else {
-        alert('请上传支持的文档格式：PDF、Word、Excel、PowerPoint、Markdown、TXT 等')
-      }
+      setFile(e.dataTransfer.files[0])
+      setInputText('')
+      setParsedJD(null)
     }
   }
 
-  const analyzeResume = async () => {
-    if (!file) {
-      alert('请先上传简历文件')
-      return
-    }
-
-    if (!jobSelection) {
-      alert('请选择目标岗位')
+  const parseJD = async () => {
+    if (!inputText && !file) {
+      alert('请输入 JD 文本或上传文件')
       return
     }
 
     setLoading(true)
-    setResult('')
-    setProgress(0)
-    setAnalysisStage('正在上传文件...')
+    setParsedJD(null)
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL
-    const apiKey = process.env.NEXT_PUBLIC_APP_KEY
+    try {
+      const formData = new FormData()
+      if (file) {
+        formData.append('file', file)
+      } else {
+        formData.append('text', inputText)
+      }
 
-    if (!apiUrl || !apiKey) {
-      alert('系统配置错误，请联系管理员')
+      const response = await fetch('/api/jd/parse', { method: 'POST', body: formData })
+      if (!response.ok) throw new Error('解析失败')
+
+      const data = await response.json()
+      setParsedJD(data.parsed)
+    } catch (error) {
+      console.error(error)
+      alert('解析失败')
+    } finally {
       setLoading(false)
+    }
+  }
+
+  const exportAsJSON = () => {
+    if (!parsedJD) return
+    const dataStr = JSON.stringify(parsedJD, null, 2)
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr)
+    const linkElement = document.createElement('a')
+    linkElement.setAttribute('href', dataUri)
+    linkElement.setAttribute('download', 'jd_parsed.json')
+    linkElement.click()
+  }
+
+  return (
+    <div className="space-y-8">
+      <div className="text-center mb-12">
+        <h1 className="text-5xl font-bold mb-4">
+          <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+            JD 智能解析器
+          </span>
+        </h1>
+        <p className="text-gray-300 text-lg">AI 自动提取职位描述关键信息</p>
+      </div>
+
+      <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20">
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* 文本输入 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-200 mb-3">粘贴 JD 文本</label>
+            <textarea
+              value={inputText}
+              onChange={(e) => { setInputText(e.target.value); setFile(null); setParsedJD(null); }}
+              placeholder="粘贴完整的职位描述..."
+              className="w-full h-64 bg-white/10 border border-gray-400 rounded-xl p-4 text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+            />
+          </div>
+
+          {/* 文件上传 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-200 mb-3">或上传 JD 文件</label>
+            <div
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-xl p-8 text-center h-64 flex flex-col justify-center transition-all ${
+                dragActive ? 'border-purple-400 bg-purple-500/20' : 'border-gray-400 bg-white/5 hover:bg-white/10'
+              }`}
+            >
+              <input type="file" onChange={handleFileChange} accept=".txt,.pdf,.doc,.docx" className="hidden" id="jd-upload" />
+              <label htmlFor="jd-upload" className="cursor-pointer flex flex-col items-center">
+                <UploadIcon />
+                <p className="text-gray-300 mt-4">{file ? file.name : '拖拽或点击上传'}</p>
+                <p className="text-sm text-gray-400 mt-2">支持 TXT, PDF, DOC, DOCX</p>
+              </label>
+              {file && (
+                <button onClick={() => setFile(null)} className="mt-4 text-red-400 hover:text-red-300 flex items-center justify-center gap-2">
+                  <XIcon /> 移除文件
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={parseJD}
+          disabled={loading || (!inputText && !file)}
+          className="mt-8 w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-4 rounded-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+        >
+          {loading ? '🔄 AI 解析中...' : '🚀 开始解析'}
+        </button>
+      </div>
+
+      {/* 解析结果 */}
+      {parsedJD && (
+        <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20 space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold text-white">解析结果</h2>
+            <button onClick={exportAsJSON} className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-all">
+              📥 导出 JSON
+            </button>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <InfoCard title="职位名称" value={parsedJD.title} />
+            <InfoCard title="公司名称" value={parsedJD.company} />
+            <InfoCard title="工作地点" value={parsedJD.location} />
+            <InfoCard title="薪资范围" value={parsedJD.salary} />
+            <InfoCard title="工作经验" value={parsedJD.experience} />
+            <InfoCard title="学历要求" value={parsedJD.education} />
+          </div>
+
+          <ListCard title="岗位职责" items={parsedJD.responsibilities} icon="📋" />
+          <ListCard title="任职要求" items={parsedJD.requirements} icon="✅" />
+          <TagCard title="技能标签" tags={parsedJD.tags} />
+          <ListCard title="福利待遇" items={parsedJD.benefits} icon="🎁" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ========== 招聘查询组件 ==========
+function RecruitAgent() {
+  const [query, setQuery] = useState('')
+  const [result, setResult] = useState<QueryResult | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [queryType, setQueryType] = useState<'company' | 'industry' | 'auto'>('auto')
+
+  const suggestedQueries = [
+    '阿里巴巴有哪些实习岗位？',
+    '互联网行业的后端开发岗位',
+    '字节跳动的内推码',
+    '腾讯秋招算法岗位',
+    '金融行业有哪些优质公司？',
+    '快消行业市场营销岗位',
+  ]
+
+  const handleSearch = async () => {
+    if (!query.trim()) {
+      alert('请输入查询内容')
       return
     }
 
-    const userId = `user-${Date.now()}-${Math.random().toString(36).substring(7)}`
+    setLoading(true)
+    setResult(null)
 
     try {
-      setProgress(20)
-      const uploadFormData = new FormData()
-      uploadFormData.append('file', file)
-      uploadFormData.append('user', userId)
-
-      const uploadResponse = await fetch(`${apiUrl}/files/upload`, {
+      const response = await fetch('/api/recruit/query', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: uploadFormData,
-        cache: 'no-store',
-      })
-
-      if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json().catch(() => ({ message: '文件上传失败' }))
-        throw new Error(errorData.message || `文件上传失败 (${uploadResponse.status})`)
-      }
-
-      const uploadData = await uploadResponse.json()
-      setProgress(40)
-      setAnalysisStage('文件上传成功，正在 AI 分析中...')
-
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      const workflowResponse = await fetch(`${apiUrl}/workflows/run`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          inputs: {
-            CV: {
-              type: 'document',
-              transfer_method: 'local_file',
-              upload_file_id: uploadData.id,
-            },
-            job_selection: jobSelection,
-          },
-          response_mode: 'streaming',
-          user: userId,
+          query: query.trim(),
+          type: queryType === 'auto' ? undefined : queryType,
+          topK: 10,
         }),
-        cache: 'no-store',
       })
 
-      if (!workflowResponse.ok) {
-        const errorData = await workflowResponse.json().catch(() => ({ message: '分析请求失败' }))
-        throw new Error(errorData.message || `分析请求失败 (${workflowResponse.status})`)
-      }
-
-      setProgress(60)
-      setAnalysisStage('AI 正在生成评估报告...')
-
-      const reader = workflowResponse.body?.getReader()
-      const decoder = new TextDecoder()
-      let evaluation = ''
-      let evaluator = ''
-      
-      if (reader) {
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            
-            const chunk = decoder.decode(value, { stream: true })
-            const lines = chunk.split('\n').filter(line => line.trim().startsWith('data:'))
-            
-            for (const line of lines) {
-              try {
-                const jsonStr = line.replace(/^data:\s*/, '')
-                const data = JSON.parse(jsonStr)
-                
-                if (data.event === 'node_finished' && data.data?.outputs) {
-                  if (data.data.outputs.text) evaluation = data.data.outputs.text
-                  if (data.data.outputs.text_1) evaluator = data.data.outputs.text_1
-                }
-                
-                if (data.event === 'workflow_finished') {
-                  setProgress(100)
-                  break
-                }
-              } catch (e) {
-                console.log('解析行失败:', line)
-              }
-            }
-            
-            if (evaluation || evaluator) {
-              const partialResult = evaluation || evaluator 
-                ? `${evaluation}${evaluator ? '\n\n---\n\n' + evaluator : ''}`
-                : ''
-              if (partialResult) setResult(partialResult)
-              setProgress(Math.min(80 + (evaluation.length / 100), 95))
-            }
-          }
-        } finally {
-          reader.releaseLock()
-        }
-      }
-      
-      const fullResult = evaluation || evaluator 
-        ? `${evaluation}${evaluator ? '\n\n---\n\n' + evaluator : ''}`
-        : '未获取到分析结果，请检查 Workflow 配置'
-      
-      setResult(fullResult)
-      setAnalysisStage('分析完成！')
-      setProgress(100)
-
+      if (!response.ok) throw new Error('查询失败')
+      const data = await response.json()
+      setResult(data)
     } catch (error) {
-      console.error('Error:', error)
-      const errorMessage = (error as Error).message
-      
-      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
-        setResult('❌ 网络连接失败\n\n可能原因：\n• 网络不稳定或被防火墙拦截\n• Dify API 服务暂时不可用\n• CORS 跨域问题\n\n建议：\n1. 检查网络连接\n2. 稍后重试\n3. 查看浏览器控制台获取详细错误信息')
-      } else if (errorMessage.includes('401') || errorMessage.includes('403')) {
-        setResult('❌ 权限验证失败\n\n请确保：\n• API Key 正确且有效\n• API Key 有访问该 Workflow 的权限\n• 在 Vercel 正确配置了环境变量')
-      } else {
-        setResult(`❌ 分析出错：${errorMessage}\n\n请确保：\n1. 已在 Vercel 配置环境变量\n2. Dify Workflow 支持文件上传\n3. API Key 有效且有权限\n4. 网络连接正常`)
-      }
+      console.error(error)
+      alert('查询失败')
     } finally {
       setLoading(false)
-      setProgress(0)
-      setAnalysisStage('')
     }
   }
 
-  const removeFile = () => {
-    setFile(null)
-    setResult('')
+  const copyCode = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => alert('✅ 已复制到剪贴板'))
   }
+
+  return (
+    <div className="space-y-8">
+      <div className="text-center mb-12">
+        <h1 className="text-5xl font-bold mb-4">
+          <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+            智能招聘查询 Agent
+          </span>
+        </h1>
+        <p className="text-gray-300 text-lg">基于 RAG 的智能招聘信息检索系统</p>
+      </div>
+
+      <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20">
+        {/* 查询类型 */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-200 mb-3">查询类型</label>
+          <div className="flex gap-4">
+            {[
+              { value: 'auto', label: '🤖 智能识别', desc: '自动判断查询类型' },
+              { value: 'company', label: '🏢 公司查询', desc: '查找特定公司岗位' },
+              { value: 'industry', label: '🏭 行业查询', desc: '按行业筛选岗位' },
+            ].map(type => (
+              <button
+                key={type.value}
+                onClick={() => setQueryType(type.value as any)}
+                className={`flex-1 p-4 rounded-xl border-2 transition-all ${
+                  queryType === type.value
+                    ? 'border-blue-400 bg-blue-500/20'
+                    : 'border-gray-600 bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <div className="font-bold text-white mb-1">{type.label}</div>
+                <div className="text-sm text-gray-400">{type.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 搜索框 */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-200 mb-3">输入查询</label>
+          <div className="flex gap-4">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="例如：阿里巴巴有哪些实习岗位？"
+              className="flex-1 bg-white/10 border border-gray-400 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <button
+              onClick={handleSearch}
+              disabled={loading || !query.trim()}
+              className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold px-8 py-3 rounded-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {loading ? '🔄 查询中...' : '🔍 搜索'}
+            </button>
+          </div>
+        </div>
+
+        {/* 推荐查询 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-200 mb-3">快速查询</label>
+          <div className="flex flex-wrap gap-2">
+            {suggestedQueries.map(q => (
+              <button
+                key={q}
+                onClick={() => setQuery(q)}
+                className="bg-white/10 hover:bg-white/20 text-gray-300 px-4 py-2 rounded-lg transition-all text-sm"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 查询结果 */}
+      {result && (
+        <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20 space-y-6">
+          {/* AI 回答 */}
+          {result.answer && (
+            <div className="bg-blue-500/20 border border-blue-500/50 rounded-xl p-6">
+              <h3 className="text-xl font-bold text-blue-400 mb-3">🤖 AI 智能回答</h3>
+              <p className="text-gray-200 leading-relaxed whitespace-pre-wrap">{result.answer}</p>
+            </div>
+          )}
+
+          {/* 岗位列表 */}
+          {result.jobs && result.jobs.length > 0 && (
+            <div>
+              <h3 className="text-xl font-bold text-white mb-4">📋 相关岗位 ({result.jobs.length})</h3>
+              <div className="space-y-4">
+                {result.jobs.map(job => (
+                  <div key={job.id} className="bg-white/10 rounded-xl p-5 border border-white/20 hover:border-blue-400 transition-all">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="text-lg font-bold text-white">{job.title}</h4>
+                        <p className="text-gray-400 text-sm mt-1">{job.company} · {job.location}</p>
+                      </div>
+                      <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm">{job.type}</span>
+                    </div>
+                    {job.referralCode && (
+                      <div className="flex items-center gap-2 mt-3">
+                        <span className="text-sm text-gray-300">内推码:</span>
+                        <code className="bg-gray-800 text-green-400 px-3 py-1 rounded">{job.referralCode}</code>
+                        <button onClick={() => copyCode(job.referralCode!)} className="text-blue-400 hover:text-blue-300 text-sm">
+                          📋 复制
+                        </button>
+                      </div>
+                    )}
+                    {job.applyUrl && (
+                      <a href={job.applyUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-blue-400 hover:text-blue-300 text-sm">
+                        🔗 查看详情 →
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ========== 辅助组件 ==========
+const InfoCard = ({ title, value }: { title: string; value: string }) => (
+  <div className="bg-white/10 rounded-xl p-4 border border-white/20">
+    <h4 className="text-sm text-gray-400 mb-2">{title}</h4>
+    <p className="text-white font-medium">{value || '-'}</p>
+  </div>
+)
+
+const ListCard = ({ title, items, icon }: { title: string; items: string[]; icon: string }) => (
+  <div className="bg-white/10 rounded-xl p-4 border border-white/20">
+    <h4 className="text-lg font-bold text-white mb-3">{icon} {title}</h4>
+    <ul className="space-y-2">
+      {items.map((item, i) => (
+        <li key={i} className="text-gray-200 flex items-start gap-2">
+          <span className="text-purple-400 mt-1">•</span>
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  </div>
+)
+
+const TagCard = ({ title, tags }: { title: string; tags: string[] }) => (
+  <div className="bg-white/10 rounded-xl p-4 border border-white/20">
+    <h4 className="text-lg font-bold text-white mb-3">🏷️ {title}</h4>
+    <div className="flex flex-wrap gap-2">
+      {tags.map(tag => (
+        <span key={tag} className="bg-purple-500/30 border border-purple-400/50 text-purple-200 px-3 py-1 rounded-full text-sm">
+          {tag}
+        </span>
+      ))}
+    </div>
+  </div>
+)
+
+// ========== 主页面组件 ==========
+export default function IntegratedHome() {
+  const [activeTab, setActiveTab] = useState<'resume' | 'jd' | 'recruit'>('resume')
 
   return (
     <>
       <Head>
-        <title>AI 简历分析助手 - 智能职业规划</title>
-        <meta name="description" content="基于 Dify AI 的智能简历分析工具" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
+        <title>AI 智能助手 - 简历分析 | JD 解析 | 招聘查询</title>
+        <meta name="description" content="基于 Dify AI 的三合一智能招聘助手" />
       </Head>
-      
-      {/* 背景动画层 */}
+
+      {/* 背景 */}
       <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-teal-900 to-slate-900 overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDE2YzAtMS4xLjktMiAyLTJzMiAuOSAyIDItLjkgMi0yIDItMi0uOS0yLTJ6bS0yMCAwYzAtMS4xLjktMiAyLTJzMiAuOSAyIDItLjkgMi0yIDItMi0uOS0yLTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-20"></div>
-        
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-teal-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-emerald-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+        <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
 
-      <main className="relative min-h-screen py-12 px-4 backdrop-blur-sm">
-        <div className="max-w-5xl mx-auto">
-          {/* 头部 */}
-          <div className="text-center mb-12 animate-fade-in">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-cyan-500 to-teal-500 mb-6 shadow-lg shadow-teal-500/50">
-              <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <h1 className="text-5xl md:text-6xl font-bold mb-4">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400">
-                AI 简历分析助手
-              </span>
-            </h1>
-            <p className="text-gray-300 text-lg md:text-xl max-w-2xl mx-auto">
-              基于 Dify AI 技术，为您提供专业的简历评估与职业建议
-            </p>
-          </div>
-
-          {/* 主要内容卡片 */}
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-6 md:p-8 border border-white/20 animate-fade-in" style={{animationDelay: '0.2s'}}>
-            
-            {/* 文件上传区域 */}
-            <div className="mb-8">
-              <div className="flex items-center mb-4">
-                <div className="w-1 h-6 bg-gradient-to-b from-cyan-400 to-teal-500 rounded-full mr-3"></div>
-                <h2 className="text-2xl font-bold text-white">上传简历文件</h2>
-              </div>
-              
-              {!file ? (
-                <div
-                  className={`
-                    relative border-2 border-dashed rounded-xl p-8 md:p-12 text-center transition-all duration-300
-                    ${dragActive 
-                      ? 'border-teal-400 bg-teal-500/20' 
-                      : 'border-teal-500/30 bg-slate-900/50 hover:border-teal-500/50'
-                    }
-                  `}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                >
-                  <input
-                    type="file"
-                    id="file-upload"
-                    className="hidden"
-                    accept=".pdf,.doc,.docx,.txt,.md,.xlsx,.xls,.pptx,.ppt,.html,.csv,.xml,.epub"
-                    onChange={handleFileChange}
-                  />
-                  <label htmlFor="file-upload" className="cursor-pointer">
-                    <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center transform transition-transform hover:scale-110">
-                      <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                    </div>
-                    <p className="text-xl font-semibold text-white mb-2">
-                      {dragActive ? '松开鼠标上传文件' : '点击上传或拖拽文件至此'}
-                    </p>
-                    <p className="text-gray-400 text-sm">
-                      支持 PDF、Word、Excel、PPT、Markdown、TXT 等多种格式
-                    </p>
-                  </label>
-                </div>
-              ) : (
-                <div className="bg-gradient-to-r from-teal-500/20 to-cyan-500/20 border border-teal-500/50 rounded-xl p-6 flex items-center justify-between group hover:border-teal-400 transition-all">
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-semibold text-lg truncate">{file.name}</p>
-                      <p className="text-gray-400 text-sm">{(file.size / 1024).toFixed(2)} KB</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={removeFile}
-                    className="ml-4 p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition-all transform hover:scale-110"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* 岗位选择 */}
-            <div className="mb-8">
-              <div className="flex items-center mb-4">
-                <div className="w-1 h-6 bg-gradient-to-b from-cyan-400 to-teal-500 rounded-full mr-3"></div>
-                <h2 className="text-2xl font-bold text-white">选择目标岗位</h2>
-              </div>
-              <select
-                value={jobSelection}
-                onChange={(e) => setJobSelection(e.target.value)}
-                className="w-full p-4 bg-slate-900/50 border-2 border-teal-500/30 rounded-xl focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 text-gray-100 transition-all duration-300 hover:border-teal-500/50"
-              >
-                <option value="">请选择岗位类型...</option>
-                {jobOptions.map((job, index) => (
-                  <option key={index} value={job} className="bg-slate-900 text-gray-100">
-                    {job}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 分析按钮 */}
+      <main className="relative min-h-screen py-8 px-4">
+        <div className="max-w-7xl mx-auto">
+          {/* Tab 切换按钮 */}
+          <div className="mb-12 flex justify-center gap-6 animate-fade-in">
             <button
-              onClick={analyzeResume}
-              disabled={loading || !file || !jobSelection}
-              className="mt-6 w-full relative group overflow-hidden bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-600 hover:via-teal-600 hover:to-emerald-600 disabled:from-gray-600 disabled:to-gray-600 text-white font-bold py-5 px-8 rounded-xl transition-all duration-300 text-lg shadow-lg hover:shadow-teal-500/50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
+              onClick={() => setActiveTab('resume')}
+              className={`px-10 py-5 rounded-2xl font-bold text-xl transition-all transform ${
+                activeTab === 'resume'
+                  ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-2xl scale-110'
+                  : 'bg-white/10 text-gray-300 hover:bg-white/20 hover:scale-105'
+              }`}
             >
-              <span className="relative z-10 flex items-center justify-center gap-3">
-                {loading ? (
-                  <>
-                    <svg className="animate-spin h-6 w-6" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span>AI 分析中...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    <span>开始智能分析</span>
-                  </>
-                )}
-              </span>
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+              📄 简历分析
             </button>
-
-            {/* 进度提示 */}
-            {loading && (
-              <div className="mt-4 space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-300">{analysisStage}</span>
-                  <span className="text-teal-400 font-semibold">{progress}%</span>
-                </div>
-                <div className="w-full h-2 bg-slate-900/50 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-cyan-500 to-teal-500 transition-all duration-500 ease-out"
-                    style={{ width: `${progress}%` }}
-                  ></div>
-                </div>
-              </div>
-            )}
+            <button
+              onClick={() => setActiveTab('jd')}
+              className={`px-10 py-5 rounded-2xl font-bold text-xl transition-all transform ${
+                activeTab === 'jd'
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-2xl scale-110'
+                  : 'bg-white/10 text-gray-300 hover:bg-white/20 hover:scale-105'
+              }`}
+            >
+              🔍 JD 解析
+            </button>
+            <button
+              onClick={() => setActiveTab('recruit')}
+              className={`px-10 py-5 rounded-2xl font-bold text-xl transition-all transform ${
+                activeTab === 'recruit'
+                  ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-2xl scale-110'
+                  : 'bg-white/10 text-gray-300 hover:bg-white/20 hover:scale-105'
+              }`}
+            >
+              💼 招聘查询
+            </button>
           </div>
 
-          {/* 结果展示区域 */}
-          {result && (
-            <>
-              {/* 可视化仪表盘 */}
-              {parsedData && (
-                <div className="mt-8 space-y-6 animate-slide-up">
-                  {/* 总分展示 */}
-                  <div className="bg-white rounded-2xl p-8 shadow-lg border border-slate-100">
-                    <div className="flex flex-col md:flex-row items-center gap-8">
-                      <div className="flex-shrink-0">
-                        <CircleProgress score={parsedData.totalScore} />
-                      </div>
-                      <div className="flex-1 text-center md:text-left">
-                        <h2 className="text-2xl font-bold text-slate-800 mb-2">总体匹配评分</h2>
-                        <p className="text-slate-600 leading-relaxed">
-                          {parsedData.totalSummary || "AI 正在分析您的简历与目标岗位的匹配程度..."}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+          {/* 内容区域 */}
+          <div className="animate-fade-in">
+            {activeTab === 'resume' && <ResumeAnalyzer />}
+            {activeTab === 'jd' && <JDParser />}
+            {activeTab === 'recruit' && <RecruitAgent />}
+          </div>
 
-                  {/* 指标卡片 */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <ScoreCard 
-                      title="关键优势" 
-                      score={parsedData.strengths.score}
-                      icon={<TrophyIcon />}
-                      color="emerald"
-                    />
-                    <ScoreCard 
-                      title="潜在差距" 
-                      score={parsedData.gaps.score}
-                      icon={<AlertIcon />}
-                      color="amber"
-                    />
-                    <ScoreCard 
-                      title="详细分析" 
-                      score={parsedData.analysis.score}
-                      icon={<ChartIcon />}
-                      color="blue"
-                    />
-                    <ScoreCard 
-                      title="成长潜力" 
-                      score={8.5}
-                      icon={<LightbulbIcon />}
-                      color="indigo"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* 详细报告 */}
-              <div className="mt-6 bg-gradient-to-br from-slate-900/90 to-teal-900/50 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-teal-500/30 animate-slide-up overflow-hidden relative">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl"></div>
-              <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl"></div>
-              
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 relative z-10 gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-400 to-cyan-500 flex items-center justify-center shadow-lg shadow-cyan-500/50">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-teal-300 to-emerald-300">
-                      AI 评估报告
-                    </h2>
-                    <p className="text-gray-400 text-sm mt-1">基于您的简历和目标岗位生成</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(result).then(() => {
-                      alert('✅ 已复制到剪贴板')
-                    })
-                  }}
-                  className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-medium transition-all duration-200 flex items-center gap-2 hover:scale-105"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  复制报告
-                </button>
-              </div>
-              
-              <div className="relative z-10 bg-slate-950/50 rounded-xl p-8 border border-teal-500/20 backdrop-blur-sm">
-                {renderFormattedResult(result)}
-              </div>
-            </div>
-            </>
-          )}
-          
-          {/* 特性展示 */}
-          {!result && !loading && (
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in" style={{animationDelay: '0.4s'}}>
-              <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:bg-white/10 transition-all duration-300 transform hover:scale-105">
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-2">快速分析</h3>
-                <p className="text-gray-400 text-sm">秒级响应，即时获得专业分析结果</p>
-              </div>
-              
-              <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:bg-white/10 transition-all duration-300 transform hover:scale-105">
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-teal-500 to-green-500 flex items-center justify-center mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-2">智能匹配</h3>
-                <p className="text-gray-400 text-sm">51 种岗位类型，精准评估匹配度</p>
-              </div>
-              
-              <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:bg-white/10 transition-all duration-300 transform hover:scale-105">
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-2">专业建议</h3>
-                <p className="text-gray-400 text-sm">AI 提供详细改进方案和职业规划</p>
-              </div>
-            </div>
-          )}
+          {/* 页脚 */}
+          <div className="mt-16 text-center text-gray-400 text-sm">
+            <p>Powered by Dify AI · 智能招聘助手 v1.0</p>
+          </div>
         </div>
       </main>
     </>
