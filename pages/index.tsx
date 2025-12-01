@@ -477,14 +477,23 @@ function JDParser() {
     setParsedJD(null)
 
     try {
-      const formData = new FormData()
+      let textContent = inputText
+      
+      // 如果上传了文件，读取文件内容
       if (file) {
-        formData.append('file', file)
-      } else {
-        formData.append('text', inputText)
+        textContent = await file.text()
       }
 
-      const response = await fetch('/api/jd/parse', { method: 'POST', body: formData })
+      const response = await fetch('/api/jd/parse', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: textContent,
+        }),
+      })
+      
       if (!response.ok) throw new Error('解析失败')
 
       const data = await response.json()
