@@ -58,62 +58,254 @@ interface MatchingStats {
   suggestion: { content: string }
 }
 
-// ========== 简历分析组件 ==========
+// ========== 简历分析组件 (Nov 25 成熟版本) ==========
 function ResumeAnalyzer() {
-  const [resumeFile, setResumeFile] = useState<File | null>(null)
-  const [selectedJob, setSelectedJob] = useState('')
-  const [stats, setStats] = useState<MatchingStats | null>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [jobSelection, setJobSelection] = useState('')
+  const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
 
-  const jobPositions = [
-    'AI工程师', '后端开发', '前端开发', '产品经理', '数据分析师',
-    '算法工程师', '测试工程师', '运维工程师', 'UI设计师', '项目经理'
+  // 岗位选项列表（与 Dify Workflow 配置一致）
+  const jobOptions = [
+    '金融：银行金融科技类岗位', '金融：银行产品与研发类岗位', '金融：银行客户服务与销售岗',
+    '金融：银行运营与支持岗', '金融：银行信贷与投资岗', '金融：银行风险管理岗',
+    '金融：投行股权承做岗', '金融：机构销售岗', '金融：资管固收投资助理',
+    '金融：研究助理岗', '金融：投资研究岗', '金融：产品研发岗',
+    '金融：风险控制岗', '金融：量化交易员', '金融：基金运营岗',
+    '金融：精算师', '金融：保险产品开发', '金融：核保核赔岗', '金融：保险投资岗',
+    '快消：快消市场销售管培生', '快消：快消HR', '快消：快消产品供应链管培生',
+    '快消：快消技术支持岗', '快消：快消品牌管理', '快消：快消产品研发', '快消：市场调研',
+    '互联网：后端开发工程师', '互联网：前端开发工程师', '互联网：移动端开发工程师',
+    '互联网：算法工程师', '互联网：测试开发工程师', '互联网：功能产品经理',
+    '互联网：策略产品经理', '互联网：商业化产品经理', '互联网：AI产品经理',
+    '互联网：UI设计师', '互联网：交互设计师', '互联网：数据科学家',
+    '互联网：商业分析师（BA/DS）', '互联网：电商运营', '互联网：内容运营',
+    '互联网：产品运营', '互联网：市场营销', '互联网：用户研究',
+    '互联网：投资分析师', '互联网：风险策略分析师', '互联网：人力资源',
+    '互联网：行政专员', '互联网：战略分析师',
   ]
+
+  // 渲染格式化结果
+  const renderFormattedResult = (text: string) => {
+    let cleanText = text
+      .replace(/^##+ /gm, '')
+      .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/^[-•*]\s+/gm, '• ')
+      .replace(/\n{3,}/g, '\n\n')
+    
+    const paragraphs = cleanText.split('\n\n').filter(p => p.trim())
+    
+    return paragraphs.map((para, idx) => {
+      const lines = para.split('\n').filter(l => l.trim())
+      
+      return (
+        <div key={idx} className="mb-6 last:mb-0">
+          {lines.map((line, i) => {
+            const trimmed = line.trim()
+            if (!trimmed) return null
+            
+            if (trimmed.startsWith('• ')) {
+              return (
+                <div key={i} className="flex items-start gap-3 group hover:bg-white/5 p-3 rounded-lg transition-all duration-200 mb-2">
+                  <div className="mt-1.5 w-2 h-2 rounded-full bg-gradient-to-br from-cyan-400 to-teal-500 flex-shrink-0 group-hover:scale-125 transition-transform"></div>
+                  <p className="text-gray-300 leading-relaxed flex-1">{trimmed.substring(2)}</p>
+                </div>
+              )
+            }
+            
+            const isTitle = i === 0 && lines.length > 1 && !trimmed.includes('：') && trimmed.length < 50
+            
+            if (isTitle) {
+              return (
+                <div key={i} className="flex items-center gap-3 mb-4 pb-3 border-b border-teal-500/30">
+                  <div className="w-1.5 h-6 bg-gradient-to-b from-cyan-400 to-teal-500 rounded-full"></div>
+                  <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-teal-400">{trimmed}</h2>
+                </div>
+              )
+            }
+            
+            return <p key={i} className="text-gray-300 leading-relaxed mb-2">{trimmed}</p>
+          })}
+        </div>
+      )
+    })
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setResumeFile(e.target.files[0])
-      setStats(null)
+      const selectedFile = e.target.files[0]
+      const fileName = selectedFile.name.toLowerCase()
+      const supportedExtensions = ['.txt', '.md', '.pdf', '.html', '.xlsx', '.xls', '.doc', '.docx', '.csv', '.pptx', '.ppt', '.xml', '.epub']
+      const isSupported = supportedExtensions.some(ext => fileName.endsWith(ext))
+      
+      if (isSupported) {
+        setFile(selectedFile)
+        setResult('')
+      } else {
+        alert('请上传支持的文档格式：PDF、Word、Excel、PowerPoint、Markdown、TXT 等')
+      }
+    }
+  }
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true)
+    } else if (e.type === "dragleave") {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const droppedFile = e.dataTransfer.files[0]
+      const fileName = droppedFile.name.toLowerCase()
+      const supportedExtensions = ['.txt', '.md', '.pdf', '.html', '.xlsx', '.xls', '.doc', '.docx', '.csv', '.pptx', '.ppt', '.xml', '.epub']
+      const isSupported = supportedExtensions.some(ext => fileName.endsWith(ext))
+      
+      if (isSupported) {
+        setFile(droppedFile)
+        setResult('')
+      } else {
+        alert('请上传支持的文档格式')
+      }
     }
   }
 
   const analyzeResume = async () => {
-    if (!resumeFile || !selectedJob) {
+    if (!file || !jobSelection) {
       alert('请上传简历并选择岗位')
       return
     }
 
     setLoading(true)
-    const formData = new FormData()
-    formData.append('resume', resumeFile)
-    formData.append('position', selectedJob)
+    setResult('')
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL
+    const apiKey = process.env.NEXT_PUBLIC_APP_KEY
+
+    if (!apiUrl || !apiKey) {
+      alert('系统配置错误，请联系管理员')
+      setLoading(false)
+      return
+    }
+
+    const userId = `user-${Date.now()}-${Math.random().toString(36).substring(7)}`
 
     try {
-      const response = await fetch('/api/analyze', { method: 'POST', body: formData })
-      if (!response.ok) throw new Error('分析失败')
-      const data = await response.json()
-      setStats(data.stats)
+      // 上传文件
+      const uploadFormData = new FormData()
+      uploadFormData.append('file', file)
+      uploadFormData.append('user', userId)
+
+      const uploadResponse = await fetch(`${apiUrl}/files/upload`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+        body: uploadFormData,
+        cache: 'no-store',
+      })
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json().catch(() => ({ message: '文件上传失败' }))
+        throw new Error(errorData.message || `文件上传失败 (${uploadResponse.status})`)
+      }
+
+      const uploadData = await uploadResponse.json()
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // 调用 Workflow
+      const workflowResponse = await fetch(`${apiUrl}/workflows/run`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: {
+            CV: {
+              type: 'document',
+              transfer_method: 'local_file',
+              upload_file_id: uploadData.id,
+            },
+            job_selection: jobSelection,
+          },
+          response_mode: 'streaming',
+          user: userId,
+        }),
+        cache: 'no-store',
+      })
+
+      if (!workflowResponse.ok) {
+        const errorData = await workflowResponse.json().catch(() => ({ message: '分析请求失败' }))
+        throw new Error(errorData.message || `分析请求失败 (${workflowResponse.status})`)
+      }
+
+      // 处理流式响应
+      const reader = workflowResponse.body?.getReader()
+      const decoder = new TextDecoder()
+      let evaluation = ''
+      let evaluator = ''
+      
+      if (reader) {
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            
+            const chunk = decoder.decode(value, { stream: true })
+            const lines = chunk.split('\n').filter(line => line.trim().startsWith('data:'))
+            
+            for (const line of lines) {
+              try {
+                const jsonStr = line.replace(/^data:\s*/, '')
+                const data = JSON.parse(jsonStr)
+                
+                if (data.event === 'node_finished' && data.data?.outputs) {
+                  if (data.data.outputs.text) evaluation = data.data.outputs.text
+                  if (data.data.outputs.text_1) evaluator = data.data.outputs.text_1
+                }
+                
+                if (data.event === 'workflow_finished') break
+              } catch (e) {
+                console.log('解析行失败:', line)
+              }
+            }
+            
+            if (evaluation || evaluator) {
+              const partialResult = `${evaluation}${evaluator ? '\n\n---\n\n' + evaluator : ''}`
+              if (partialResult) setResult(partialResult)
+            }
+          }
+        } finally {
+          reader.releaseLock()
+        }
+      }
+      
+      const fullResult = evaluation || evaluator 
+        ? `${evaluation}${evaluator ? '\n\n---\n\n' + evaluator : ''}`
+        : '未获取到分析结果，请检查 Workflow 配置'
+      
+      setResult(fullResult)
+
     } catch (error) {
-      console.error(error)
-      alert('分析失败')
+      console.error('Error:', error)
+      const errorMessage = (error as Error).message
+      
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        setResult('❌ 网络连接失败\n\n可能原因：网络不稳定或被防火墙拦截')
+      } else if (errorMessage.includes('401') || errorMessage.includes('403')) {
+        setResult('❌ 权限验证失败\n\n请确保 API Key 正确且有效')
+      } else {
+        setResult(`❌ 分析出错：${errorMessage}`)
+      }
     } finally {
       setLoading(false)
     }
-  }
-
-  const CircleProgress = ({ score }: { score: number }) => {
-    const percentage = Math.round((score / 10) * 100)
-    let colorClass = percentage < 60 ? "text-red-500" : percentage < 80 ? "text-amber-500" : "text-emerald-500"
-    
-    return (
-      <div className="relative inline-flex items-center justify-center">
-        <svg className="w-32 h-32 transform -rotate-90">
-          <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="8" fill="none" className="text-gray-700" />
-          <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="8" fill="none" strokeDasharray={`${2 * Math.PI * 54}`} strokeDashoffset={2 * Math.PI * 54 * (1 - percentage / 100)} className={colorClass} strokeLinecap="round" />
-        </svg>
-        <div className="absolute text-3xl font-bold text-white">{percentage}</div>
-      </div>
-    )
   }
 
   return (
@@ -124,81 +316,113 @@ function ResumeAnalyzer() {
             AI 简历智能分析
           </span>
         </h1>
-        <p className="text-gray-300 text-lg">上传简历，AI 秒速匹配岗位适配度</p>
+        <p className="text-gray-300 text-lg">基于先进 AI 技术，为您提供专业的简历优化建议</p>
       </div>
 
       <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20">
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* 上传区域 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-3">上传简历</label>
-            <div className="border-2 border-dashed border-gray-400 rounded-xl p-8 text-center bg-white/5 hover:bg-white/10 transition-all cursor-pointer">
-              <input type="file" onChange={handleFileChange} accept=".pdf,.doc,.docx" className="hidden" id="resume-upload" />
-              <label htmlFor="resume-upload" className="cursor-pointer flex flex-col items-center">
-                <UploadIcon />
-                <p className="text-gray-300 mt-4">{resumeFile ? resumeFile.name : '点击或拖拽上传简历'}</p>
-                <p className="text-sm text-gray-400 mt-2">支持 PDF, DOC, DOCX</p>
-              </label>
-            </div>
-          </div>
+        {/* 岗位选择 */}
+        <div className="mb-6">
+          <label className="block text-white font-medium mb-3">选择目标岗位：</label>
+          <select
+            value={jobSelection}
+            onChange={(e) => setJobSelection(e.target.value)}
+            className="w-full p-4 bg-slate-900/50 border-2 border-teal-500/30 rounded-xl focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 text-gray-100"
+          >
+            <option value="">-- 请选择岗位 --</option>
+            {jobOptions.map((job, index) => (
+              <option key={index} value={job}>{job}</option>
+            ))}
+          </select>
+        </div>
 
-          {/* 岗位选择 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-3">选择目标岗位</label>
-            <div className="grid grid-cols-2 gap-3">
-              {jobPositions.map(job => (
-                <button
-                  key={job}
-                  onClick={() => setSelectedJob(job)}
-                  className={`py-3 px-4 rounded-lg font-medium transition-all ${
-                    selectedJob === job
-                      ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg'
-                      : 'bg-white/10 text-gray-300 hover:bg-white/20'
-                  }`}
-                >
-                  {job}
-                </button>
-              ))}
+        {/* 文件上传 */}
+        <div
+          className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${
+            dragActive ? 'border-teal-400 bg-teal-500/20' : 'border-teal-500/30 bg-slate-900/50 hover:border-teal-500/50'
+          }`}
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+        >
+          <input
+            type="file"
+            id="resume-file-upload"
+            className="hidden"
+            accept=".pdf,.doc,.docx,.txt,.md,.xlsx,.xls,.pptx,.ppt,.html,.csv,.xml,.epub"
+            onChange={handleFileChange}
+          />
+          
+          {!file ? (
+            <label htmlFor="resume-file-upload" className="cursor-pointer">
+              <div className="flex flex-col items-center gap-4">
+                <UploadIcon />
+                <div>
+                  <p className="text-xl text-white font-semibold mb-2">点击上传或拖拽文件到此处</p>
+                  <p className="text-gray-400 text-sm">支持 PDF、Word、Excel、PowerPoint、Markdown、TXT 等文档格式</p>
+                  <p className="text-gray-500 text-xs mt-2">文件大小限制：10MB</p>
+                </div>
+              </div>
+            </label>
+          ) : (
+            <div className="flex items-center justify-between bg-slate-800/50 rounded-lg p-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div className="text-left">
+                  <p className="text-white font-medium">{file.name}</p>
+                  <p className="text-gray-400 text-sm">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
+              </div>
+              <button onClick={() => setFile(null)} className="text-red-400 hover:text-red-300 transition-colors">
+                <XIcon />
+              </button>
             </div>
-          </div>
+          )}
         </div>
 
         <button
           onClick={analyzeResume}
-          disabled={loading || !resumeFile || !selectedJob}
-          className="mt-8 w-full bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold py-4 rounded-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          disabled={loading || !file || !jobSelection}
+          className="mt-6 w-full bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold py-5 rounded-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all text-lg"
         >
-          {loading ? '🔄 AI 分析中...' : '🚀 开始分析'}
+          {loading ? '🔄 AI 分析中...' : '🚀 开始智能分析'}
         </button>
       </div>
 
-      {/* 分析结果 */}
-      {stats && (
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20 space-y-6">
-          <div className="text-center">
-            <CircleProgress score={stats.totalScore} />
-            <h3 className="text-2xl font-bold text-white mt-4">综合匹配度</h3>
-            <p className="text-gray-300 mt-2">{stats.totalSummary}</p>
+      {/* 结果展示 */}
+      {result && (
+        <div className="bg-gradient-to-br from-slate-900/90 to-teal-900/50 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-teal-500/30 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl"></div>
+          
+          <div className="flex items-center mb-8 relative z-10">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-400 to-cyan-500 flex items-center justify-center shadow-lg">
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-teal-300">AI 评估报告</h2>
+                <p className="text-gray-400 text-sm mt-1">基于您的简历和目标岗位生成</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(result).then(() => alert('已复制到剪贴板'))
+              }}
+              className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-medium transition-all"
+            >
+              📋 复制报告
+            </button>
           </div>
-
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="bg-emerald-500/20 border border-emerald-500/50 rounded-xl p-4">
-              <h4 className="font-bold text-emerald-400 mb-2">💪 优势亮点 ({stats.strengths.score}/10)</h4>
-              <p className="text-gray-200 text-sm">{stats.strengths.content}</p>
-            </div>
-            <div className="bg-amber-500/20 border border-amber-500/50 rounded-xl p-4">
-              <h4 className="font-bold text-amber-400 mb-2">⚠️ 能力差距 ({stats.gaps.score}/10)</h4>
-              <p className="text-gray-200 text-sm">{stats.gaps.content}</p>
-            </div>
-            <div className="bg-blue-500/20 border border-blue-500/50 rounded-xl p-4">
-              <h4 className="font-bold text-blue-400 mb-2">📊 深度分析 ({stats.analysis.score}/10)</h4>
-              <p className="text-gray-200 text-sm">{stats.analysis.content}</p>
-            </div>
-          </div>
-
-          <div className="bg-purple-500/20 border border-purple-500/50 rounded-xl p-4">
-            <h4 className="font-bold text-purple-400 mb-2">💡 优化建议</h4>
-            <p className="text-gray-200">{stats.suggestion.content}</p>
+          
+          <div className="relative z-10 bg-slate-950/50 rounded-xl p-8 border border-teal-500/20">
+            {renderFormattedResult(result)}
           </div>
         </div>
       )}
