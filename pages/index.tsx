@@ -283,20 +283,40 @@ function ResumeAnalyzer() {
                 console.log('解析行失败:', line)
               }
             }
-            
-            if (evaluation || evaluator) {
-              const partialResult = `${evaluation}${evaluator ? '\n\n---\n\n' + evaluator : ''}`
-              if (partialResult) setResult(partialResult)
-            }
+            // 不再实时更新结果，只在最后显示完整报告
           }
         } finally {
           reader.releaseLock()
         }
       }
       
-      // 构建完整结果
-      const fullResult = `${evaluation}${evaluator ? '\n\n---\n\n' + evaluator : ''}`
-      setResult(fullResult)
+      // 构建完整结果 - 过滤掉 JSON 格式的中间数据
+      const filterJsonContent = (text: string): string => {
+        if (!text) return ''
+        // 如果整个内容是 JSON，跳过
+        if (text.trim().startsWith('{') && text.trim().endsWith('}')) {
+          try {
+            JSON.parse(text.trim())
+            return '' // 是纯 JSON，不显示
+          } catch (e) {
+            // 不是有效 JSON，继续处理
+          }
+        }
+        // 移除 markdown 代码块中的 JSON
+        let filtered = text.replace(/```json[\s\S]*?```/g, '')
+        filtered = filtered.replace(/```[\s\S]*?```/g, '')
+        return filtered.trim()
+      }
+      
+      const cleanEvaluation = filterJsonContent(evaluation)
+      const cleanEvaluator = filterJsonContent(evaluator)
+      const fullResult = `${cleanEvaluation}${cleanEvaluator ? '\n\n---\n\n' + cleanEvaluator : ''}`
+      
+      if (fullResult.trim()) {
+        setResult(fullResult)
+      } else {
+        setResult('✅ 分析完成，但未生成文本报告。请检查 Dify 工作流配置。')
+      }
 
     } catch (error) {
       console.error('Error:', error)
