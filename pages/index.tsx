@@ -290,32 +290,38 @@ function ResumeAnalyzer() {
         }
       }
       
-      // 构建完整结果 - 过滤掉 JSON 格式的中间数据
-      const filterJsonContent = (text: string): string => {
-        if (!text) return ''
-        // 如果整个内容是 JSON，跳过
-        if (text.trim().startsWith('{') && text.trim().endsWith('}')) {
+      // 构建完整结果 - 只过滤纯 JSON 格式的中间数据，保留完整报告
+      const isOnlyJson = (text: string): boolean => {
+        if (!text) return true
+        const trimmed = text.trim()
+        // 检查是否是纯 JSON 对象（以 { 开头以 } 结尾，且能解析）
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
           try {
-            JSON.parse(text.trim())
-            return '' // 是纯 JSON，不显示
+            JSON.parse(trimmed)
+            return true // 是纯 JSON，不是报告
           } catch (e) {
-            // 不是有效 JSON，继续处理
+            return false
           }
         }
-        // 移除 markdown 代码块中的 JSON
-        let filtered = text.replace(/```json[\s\S]*?```/g, '')
-        filtered = filtered.replace(/```[\s\S]*?```/g, '')
-        return filtered.trim()
+        // 检查是否只是 ```json ... ``` 代码块，没有其他文字
+        const withoutCodeBlock = trimmed.replace(/```json[\s\S]*?```/g, '').replace(/```[\s\S]*?```/g, '').trim()
+        if (withoutCodeBlock.length < 10 && trimmed.includes('```')) {
+          return true // 只有代码块，没有报告文字
+        }
+        return false
       }
       
-      const cleanEvaluation = filterJsonContent(evaluation)
-      const cleanEvaluator = filterJsonContent(evaluator)
-      const fullResult = `${cleanEvaluation}${cleanEvaluator ? '\n\n---\n\n' + cleanEvaluator : ''}`
+      // 只有当内容不是纯 JSON 时才使用
+      const finalEvaluation = isOnlyJson(evaluation) ? '' : evaluation
+      const finalEvaluator = isOnlyJson(evaluator) ? '' : evaluator
+      const fullResult = `${finalEvaluation}${finalEvaluator ? '\n\n---\n\n' + finalEvaluator : ''}`
       
       if (fullResult.trim()) {
         setResult(fullResult)
       } else {
-        setResult('✅ 分析完成，但未生成文本报告。请检查 Dify 工作流配置。')
+        // 如果两个都是 JSON，尝试直接显示原始内容（可能是正常报告）
+        const rawResult = `${evaluation}${evaluator ? '\n\n---\n\n' + evaluator : ''}`
+        setResult(rawResult.trim() || '✅ 分析完成，但未生成文本报告。请检查 Dify 工作流配置。')
       }
 
     } catch (error) {
