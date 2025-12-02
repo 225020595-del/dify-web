@@ -1,7 +1,16 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { IncomingForm } from 'formidable'
+import fs from 'fs/promises'
 
 const DIFY_API_URL = 'https://api.dify.ai/v1'
-const DIFY_API_KEY = 'app-PKM5GNF2sDXi7LkQkU4oCTDg'
+const DIFY_API_KEY = 'app-Vv1qwBMeU0dn9Tf5e37sGYLq'
+
+// 禁用 Next.js 默认的 body parser，以便 formidable 可以处理请求
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -12,7 +21,47 @@ export default async function handler(
   }
 
   try {
-    const { text, file } = req.body
+    const form = new IncomingForm({
+      keepExtensions: true,
+      maxFileSize: 10 * 1024 * 1024, // 10MB
+    })
+    
+    const [fields, files] = await form.parse(req)
+    
+    console.log('Parsed fields:', JSON.stringify(fields))
+    console.log('Parsed files:', JSON.stringify(Object.keys(files)))
+
+    let jdText = ''
+    const textFields = fields.text
+    const fileFields = files.file
+
+    // 处理文本输入
+    if (textFields && textFields.length > 0 && textFields[0] && textFields[0].trim()) {
+      jdText = textFields[0].trim()
+      console.log('Using text input, length:', jdText.length)
+    } 
+    // 处理文件上传
+    else if (fileFields && fileFields.length > 0 && fileFields[0]) {
+      const file = fileFields[0]
+      console.log('Using file input:', file.originalFilename, file.mimetype)
+      try {
+        jdText = await fs.readFile(file.filepath, 'utf-8')
+        jdText = jdText.trim()
+        console.log('File content length:', jdText.length)
+      } catch (readError) {
+        console.error('Error reading file:', readError)
+        return res.status(400).json({ error: '无法读取上传的文件' })
+      }
+    }
+
+    if (!jdText) {
+      console.log('No JD text found in request')
+      return res.status(400).json({ 
+        error: '请提供 JD 文本或上传 JD 文件',
+        debug: { fields: Object.keys(fields), files: Object.keys(files) }
+      })
+    }
+
     const userId = `user-${Date.now()}-${Math.random().toString(36).substring(7)}`
 
     // 调用 Dify JD Breaker Workflow
@@ -24,7 +73,7 @@ export default async function handler(
       },
       body: JSON.stringify({
         inputs: {
-          jd_text: text || '',
+          JD: jdText,  // Dify Workflow 的输入参数名是 JD
         },
         response_mode: 'blocking',
         user: userId,
@@ -38,38 +87,25 @@ export default async function handler(
 
     const workflowData = await workflowResponse.json()
     
-    // 从 Workflow 输出中提取解析结果
-    let parsedJD = {
-      title: '',
-      company: '',
-      location: '',
-      salary: '',
-      experience: '',
-      education: '',
-      responsibilities: [] as string[],
-      requirements: [] as string[],
-      tags: [] as string[],
-      benefits: [] as string[],
+    // 打印完整的 API 返回数据，便于调试
+    console.log('Dify API Response:', JSON.stringify(workflowData, null, 2))
+    
+    // 根据 JD_breaker.yml DSL，输出字段是：Advise, score, reason
+    const outputs = workflowData.data?.outputs || {}
+    
+    // 提取 Workflow 输出
+    const result = {
+      advise: outputs.Advise || '',           // 准备建议（文本）
+      score: outputs.score || 0,              // 评分（0-1）
+      reason: outputs.reason || '',           // 评分原因
+      raw: jdText,                            // 原始 JD 文本
     }
-
-    // 解析 Workflow 返回的数据
-    if (workflowData.data?.outputs) {
-      const output = workflowData.data.outputs.text || workflowData.data.outputs.result || ''
-      
-      try {
-        // 尝试解析为 JSON
-        const parsed = JSON.parse(output)
-        parsedJD = { ...parsedJD, ...parsed }
-      } catch (e) {
-        // 如果不是 JSON，使用文本解析
-        parsedJD = parseJDFromText(output, text || '')
-      }
-    }
+    
+    console.log('Extracted result:', result)
 
     res.status(200).json({
       success: true,
-      parsed: parsedJD,
-      raw: text || '',
+      ...result,
     })
   } catch (error) {
     console.error('Parse error:', error)
@@ -79,50 +115,4 @@ export default async function handler(
       message: errorMessage,
     })
   }
-}
-
-// 从文本中解析 JD 信息的辅助函数
-function parseJDFromText(aiOutput: string, originalText: string) {
-  const result = {
-    title: extractField(aiOutput, ['岗位名称', '职位名称', 'title', '岗位']) || '未知岗位',
-    company: extractField(aiOutput, ['公司', 'company', '企业']) || '未知公司',
-    location: extractField(aiOutput, ['地点', '工作地点', 'location', '城市']) || '未知',
-    salary: extractField(aiOutput, ['薪资', '薪酬', 'salary', '待遇']) || '面议',
-    experience: extractField(aiOutput, ['经验', '工作经验', 'experience']) || '不限',
-    education: extractField(aiOutput, ['学历', 'education']) || '不限',
-    responsibilities: extractList(aiOutput, ['岗位职责', '工作职责', '职责', 'responsibilities']),
-    requirements: extractList(aiOutput, ['任职要求', '岗位要求', '要求', 'requirements']),
-    tags: extractTags(aiOutput + ' ' + originalText),
-    benefits: extractList(aiOutput, ['福利', '待遇', 'benefits']),
-  }
-  return result
-}
-
-function extractField(text: string, keywords: string[]): string {
-  for (const keyword of keywords) {
-    const regex = new RegExp(`${keyword}[：:]\\s*([^\\n]+)`, 'i')
-    const match = text.match(regex)
-    if (match) return match[1].trim()
-  }
-  return ''
-}
-
-function extractList(text: string, keywords: string[]): string[] {
-  for (const keyword of keywords) {
-    const regex = new RegExp(`${keyword}[：:]([\\s\\S]*?)(?=\\n\\n|$)`, 'i')
-    const match = text.match(regex)
-    if (match) {
-      return match[1]
-        .split(/\\n|[1-9]\\.|•|-/)
-        .map(item => item.trim())
-        .filter(item => item.length > 5)
-    }
-  }
-  return []
-}
-
-function extractTags(text: string): string[] {
-  const commonTags = ['Java', 'Python', 'Go', 'JavaScript', 'TypeScript', 'React', 'Vue', 'MySQL', 'Redis', 'Kafka', 'Docker', 'Kubernetes', 'AWS', 'Git']
-  const tags = commonTags.filter(tag => text.includes(tag))
-  return tags.length > 0 ? tags : ['技术岗位']
 }

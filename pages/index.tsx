@@ -15,17 +15,11 @@ const XIcon = () => (
 )
 
 // ========== 类型定义 ==========
-interface ParsedJD {
-  title: string
-  company: string
-  location: string
-  salary: string
-  experience: string
-  education: string
-  responsibilities: string[]
-  requirements: string[]
-  tags: string[]
-  benefits: string[]
+interface JDAnalysisResult {
+  advise: string      // AI 准备建议
+  score: number       // 评分 (0-1)
+  reason: string      // 评分原因
+  raw: string         // 原始 JD 文本
 }
 
 interface JobItem {
@@ -250,6 +244,8 @@ function ResumeAnalyzer() {
       const decoder = new TextDecoder()
       let evaluation = ''
       let evaluator = ''
+      let totalScore = 0
+      let scores = { strengths: 0, gaps: 0, analysis: 0, potential: 0 }
       
       if (reader) {
         try {
@@ -268,6 +264,18 @@ function ResumeAnalyzer() {
                 if (data.event === 'node_finished' && data.data?.outputs) {
                   if (data.data.outputs.text) evaluation = data.data.outputs.text
                   if (data.data.outputs.text_1) evaluator = data.data.outputs.text_1
+                  
+                  // 提取评分数据（如果返回JSON格式）
+                  try {
+                    const scoreData = JSON.parse(data.data.outputs.text || data.data.outputs.text_1 || '{}')
+                    if (scoreData.total_score) totalScore = parseFloat(scoreData.total_score)
+                    if (scoreData.scores) scores = scoreData.scores
+                  } catch (e) {
+                    // 不是JSON格式，从文本中提取分数
+                    const scoreMatch = (evaluation + evaluator).match(/总体匹配度[：:]\s*(\d+\.?\d*)/i) || 
+                                      (evaluation + evaluator).match(/得分[：:]\s*(\d+\.?\d*)/i)
+                    if (scoreMatch) totalScore = parseFloat(scoreMatch[1])
+                  }
                 }
                 
                 if (data.event === 'workflow_finished') break
@@ -286,10 +294,8 @@ function ResumeAnalyzer() {
         }
       }
       
-      const fullResult = evaluation || evaluator 
-        ? `${evaluation}${evaluator ? '\n\n---\n\n' + evaluator : ''}`
-        : '未获取到分析结果，请检查 Workflow 配置'
-      
+      // 构建完整结果
+      const fullResult = `${evaluation}${evaluator ? '\n\n---\n\n' + evaluator : ''}`
       setResult(fullResult)
 
     } catch (error) {
@@ -399,8 +405,8 @@ function ResumeAnalyzer() {
           <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl"></div>
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl"></div>
           
-          <div className="flex items-center mb-8 relative z-10">
-            <div className="flex items-center gap-3 flex-1">
+          <div className="flex items-center justify-between mb-8 relative z-10">
+            <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-400 to-cyan-500 flex items-center justify-center shadow-lg">
                 <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -413,16 +419,22 @@ function ResumeAnalyzer() {
             </div>
             <button
               onClick={() => {
-                navigator.clipboard.writeText(result).then(() => alert('已复制到剪贴板'))
+                navigator.clipboard.writeText(result)
+                alert('✅ 报告已复制到剪贴板！')
               }}
-              className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-medium transition-all"
+              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium transition-all flex items-center gap-2"
             >
               📋 复制报告
             </button>
           </div>
-          
-          <div className="relative z-10 bg-slate-950/50 rounded-xl p-8 border border-teal-500/20">
-            {renderFormattedResult(result)}
+
+          {/* 详细报告内容 */}
+          <div className="relative z-10 bg-slate-900/50 rounded-xl p-6 border border-slate-700/50">
+            <div className="prose prose-invert max-w-none">
+              <div className="whitespace-pre-wrap text-gray-100 leading-relaxed">
+                {renderFormattedResult(result)}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -434,7 +446,7 @@ function ResumeAnalyzer() {
 function JDParser() {
   const [inputText, setInputText] = useState('')
   const [file, setFile] = useState<File | null>(null)
-  const [parsedJD, setParsedJD] = useState<ParsedJD | null>(null)
+  const [result, setResult] = useState<JDAnalysisResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
 
@@ -442,7 +454,7 @@ function JDParser() {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0])
       setInputText('')
-      setParsedJD(null)
+      setResult(null)
     }
   }
 
@@ -463,7 +475,7 @@ function JDParser() {
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setFile(e.dataTransfer.files[0])
       setInputText('')
-      setParsedJD(null)
+      setResult(null)
     }
   }
 
@@ -474,46 +486,71 @@ function JDParser() {
     }
 
     setLoading(true)
-    setParsedJD(null)
+    setResult(null)
 
     try {
-      let textContent = inputText
-      
-      // 如果上传了文件，读取文件内容
+      const formData = new FormData()
       if (file) {
-        textContent = await file.text()
+        formData.append('file', file)
+      }
+      // 只在有实际内容时才添加 text 字段
+      if (inputText && inputText.trim()) {
+        formData.append('text', inputText.trim())
       }
 
       const response = await fetch('/api/jd/parse', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: textContent,
-        }),
+        body: formData,
       })
       
-      if (!response.ok) throw new Error('解析失败')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || errorData.message || '解析失败')
+      }
 
       const data = await response.json()
-      setParsedJD(data.parsed)
+      setResult({
+        advise: data.advise || '',
+        score: data.score || 0,
+        reason: data.reason || '',
+        raw: data.raw || '',
+      })
     } catch (error) {
       console.error(error)
-      alert('解析失败')
+      alert(error instanceof Error ? error.message : '解析失败')
     } finally {
       setLoading(false)
     }
   }
 
-  const exportAsJSON = () => {
-    if (!parsedJD) return
-    const dataStr = JSON.stringify(parsedJD, null, 2)
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr)
-    const linkElement = document.createElement('a')
-    linkElement.setAttribute('href', dataUri)
-    linkElement.setAttribute('download', 'jd_parsed.json')
-    linkElement.click()
+  const copyToClipboard = () => {
+    if (!result) return
+    const text = `【AI 准备建议】\n${result.advise}\n\n【评分】${(result.score * 100).toFixed(0)}%\n【评分原因】${result.reason}`
+    navigator.clipboard.writeText(text)
+    alert('已复制到剪贴板')
+  }
+
+  // 格式化显示建议文本
+  const formatAdvise = (text: string) => {
+    if (!text) return null
+    return text
+      .split('\n')
+      .map((line, i) => {
+        const trimmed = line.trim()
+        if (!trimmed) return <br key={i} />
+        // 处理标题行
+        if (trimmed.match(/^#+\s/) || trimmed.match(/^\d+\.\s*\*\*/) || trimmed.match(/^##/)) {
+          const clean = trimmed.replace(/^#+\s*/, '').replace(/\*\*/g, '')
+          return <h3 key={i} className="text-lg font-bold text-purple-300 mt-4 mb-2">{clean}</h3>
+        }
+        // 处理列表项
+        if (trimmed.match(/^[-•*]\s/) || trimmed.match(/^\d+\.\s/)) {
+          const clean = trimmed.replace(/^[-•*]\s+/, '• ').replace(/\*\*/g, '')
+          return <p key={i} className="text-gray-200 ml-4 my-1">{clean}</p>
+        }
+        // 普通段落
+        return <p key={i} className="text-gray-200 my-2">{trimmed.replace(/\*\*/g, '')}</p>
+      })
   }
 
   return (
@@ -521,10 +558,10 @@ function JDParser() {
       <div className="text-center mb-12">
         <h1 className="text-5xl font-bold mb-4">
           <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-            JD 智能解析器
+            JD 智能分析助手
           </span>
         </h1>
-        <p className="text-gray-300 text-lg">AI 自动提取职位描述关键信息</p>
+        <p className="text-gray-300 text-lg">AI 分析职位要求，为您提供针对性准备建议</p>
       </div>
 
       <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20">
@@ -534,7 +571,7 @@ function JDParser() {
             <label className="block text-sm font-medium text-gray-200 mb-3">粘贴 JD 文本</label>
             <textarea
               value={inputText}
-              onChange={(e) => { setInputText(e.target.value); setFile(null); setParsedJD(null); }}
+              onChange={(e) => { setInputText(e.target.value); setFile(null); setResult(null); }}
               placeholder="粘贴完整的职位描述..."
               className="w-full h-64 bg-white/10 border border-gray-400 rounded-xl p-4 text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
             />
@@ -572,33 +609,64 @@ function JDParser() {
           disabled={loading || (!inputText && !file)}
           className="mt-8 w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-4 rounded-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
-          {loading ? '🔄 AI 解析中...' : '🚀 开始解析'}
+          {loading ? '🔄 AI 分析中（可能需要30秒）...' : '🚀 开始分析'}
         </button>
       </div>
 
-      {/* 解析结果 */}
-      {parsedJD && (
+      {/* 分析结果 */}
+      {result && (
         <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20 space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-white">解析结果</h2>
-            <button onClick={exportAsJSON} className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-all">
-              📥 导出 JSON
-            </button>
+          {/* 评分卡片 */}
+          <div className="flex flex-col md:flex-row gap-6 items-stretch">
+            {/* 评分圆环 */}
+            <div className="flex-shrink-0 bg-gradient-to-br from-purple-600/30 to-pink-600/30 rounded-2xl p-6 flex flex-col items-center justify-center min-w-[200px]">
+              <div className="relative w-32 h-32">
+                <svg className="w-full h-full transform -rotate-90">
+                  <circle cx="64" cy="64" r="56" stroke="rgba(255,255,255,0.1)" strokeWidth="12" fill="none" />
+                  <circle 
+                    cx="64" cy="64" r="56" 
+                    stroke="url(#scoreGradient)" 
+                    strokeWidth="12" 
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray={`${result.score * 351.86} 351.86`}
+                  />
+                  <defs>
+                    <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#a855f7" />
+                      <stop offset="100%" stopColor="#ec4899" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-3xl font-bold text-white">{(result.score * 100).toFixed(0)}%</span>
+                </div>
+              </div>
+              <p className="text-gray-300 mt-3 text-center">建议完整度评分</p>
+            </div>
+
+            {/* 评分原因 */}
+            <div className="flex-1 bg-white/5 rounded-2xl p-6">
+              <h3 className="text-lg font-bold text-purple-300 mb-3">📊 评分说明</h3>
+              <p className="text-gray-200 leading-relaxed">{result.reason || '暂无评分说明'}</p>
+            </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            <InfoCard title="职位名称" value={parsedJD.title} />
-            <InfoCard title="公司名称" value={parsedJD.company} />
-            <InfoCard title="工作地点" value={parsedJD.location} />
-            <InfoCard title="薪资范围" value={parsedJD.salary} />
-            <InfoCard title="工作经验" value={parsedJD.experience} />
-            <InfoCard title="学历要求" value={parsedJD.education} />
+          {/* 准备建议 */}
+          <div className="bg-white/5 rounded-2xl p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-purple-300">📝 AI 准备建议</h3>
+              <button 
+                onClick={copyToClipboard}
+                className="bg-purple-500/30 hover:bg-purple-500/50 text-purple-200 px-4 py-2 rounded-lg transition-all text-sm"
+              >
+                📋 复制全部
+              </button>
+            </div>
+            <div className="text-gray-200 leading-relaxed max-h-[600px] overflow-y-auto pr-2">
+              {formatAdvise(result.advise)}
+            </div>
           </div>
-
-          <ListCard title="岗位职责" items={parsedJD.responsibilities} icon="📋" />
-          <ListCard title="任职要求" items={parsedJD.requirements} icon="✅" />
-          <TagCard title="技能标签" tags={parsedJD.tags} />
-          <ListCard title="福利待遇" items={parsedJD.benefits} icon="🎁" />
         </div>
       )}
     </div>
@@ -652,8 +720,116 @@ function RecruitAgent() {
     }
   }
 
-  const copyCode = (text: string) => {
+  const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => alert('✅ 已复制到剪贴板'))
+  }
+
+  // 清理文本中的 Markdown 格式符号
+  const cleanText = (text: string) => {
+    return text
+      .replace(/\*\*/g, '')      // 去掉 **粗体**
+      .replace(/\*/g, '')        // 去掉 *斜体*
+      .replace(/`/g, '')         // 去掉 `代码`
+      .replace(/#+\s*/g, '')     // 去掉 # 标题
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // 转换链接为纯文本
+      .trim()
+  }
+
+  // 格式化 AI 回答，美化输出
+  const formatAnswer = (text: string) => {
+    if (!text) return null
+    
+    // 分割成段落处理
+    const lines = text.split('\n')
+    const elements: JSX.Element[] = []
+    let currentJobBlock: string[] = []
+    let jobIndex = 0
+    
+    const flushJobBlock = () => {
+      if (currentJobBlock.length > 0) {
+        elements.push(
+          <div key={`job-${jobIndex}`} className="bg-white/5 rounded-xl p-4 mb-4 border-l-4 border-blue-400">
+            {currentJobBlock.map((line, i) => {
+              const trimmed = line.trim()
+              // 岗位标题（以数字开头或【】包裹）
+              if (trimmed.match(/^\d+\.\s*/) || trimmed.match(/^【.+】/) || trimmed.match(/^\*\*.+\*\*/)) {
+                const title = cleanText(trimmed.replace(/^\d+\.\s*/, '').replace(/^【/, '').replace(/】$/, ''))
+                return <h4 key={i} className="text-lg font-bold text-blue-300 mb-3">{title}</h4>
+              }
+              // 属性行（以 - 或 • 或 ** 开头）
+              if (trimmed.startsWith('-') || trimmed.startsWith('•') || trimmed.match(/^\*\*[^*]+\*\*[：:]/)) {
+                const content = cleanText(trimmed.replace(/^[-•]\s*/, ''))
+                // 检测是否有标签（如 岗位类别：、工作地点：等）
+                const labelMatch = content.match(/^([^：:]+)[：:]\s*(.*)$/)
+                if (labelMatch) {
+                  const label = cleanText(labelMatch[1])
+                  const value = cleanText(labelMatch[2])
+                  return (
+                    <div key={i} className="flex items-start gap-3 my-2">
+                      <span className="text-cyan-400 font-medium min-w-[70px] text-sm">{label}</span>
+                      <span className="text-gray-200 flex-1">{value}</span>
+                    </div>
+                  )
+                }
+                return <p key={i} className="text-gray-300 ml-2 my-1">• {content}</p>
+              }
+              // 普通行
+              const cleaned = cleanText(trimmed)
+              return cleaned ? <p key={i} className="text-gray-300 my-1">{cleaned}</p> : null
+            })}
+          </div>
+        )
+        currentJobBlock = []
+        jobIndex++
+      }
+    }
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      const trimmed = line.trim()
+      
+      // 空行：结束当前岗位块
+      if (!trimmed) {
+        flushJobBlock()
+        continue
+      }
+      
+      // 检测是否是岗位开始（数字+点+标题 或 【标题】 或 **标题**）
+      if (trimmed.match(/^\d+\.\s*/) || trimmed.match(/^【[^】]+】/) || (trimmed.match(/^\*\*[^*]+\*\*$/) && !trimmed.includes('：'))) {
+        flushJobBlock()
+        currentJobBlock.push(line)
+        continue
+      }
+      
+      // 检测是否是属性行（在岗位块内）
+      if (currentJobBlock.length > 0 && (trimmed.startsWith('-') || trimmed.startsWith('•') || trimmed.match(/^\*\*/))) {
+        currentJobBlock.push(line)
+        continue
+      }
+      
+      // 其他情况：如果有正在进行的岗位块，添加进去；否则作为普通段落
+      if (currentJobBlock.length > 0) {
+        currentJobBlock.push(line)
+      } else {
+        // 普通段落
+        const cleaned = cleanText(trimmed)
+        if (cleaned.startsWith('根据') || cleaned.startsWith('以下是') || cleaned.includes('招聘信息') || cleaned.includes('岗位信息')) {
+          elements.push(
+            <p key={`intro-${i}`} className="text-gray-300 mb-4 pb-3 border-b border-white/10">{cleaned}</p>
+          )
+        } else if (trimmed.match(/^#+\s/)) {
+          // Markdown 标题
+          elements.push(<h3 key={`h-${i}`} className="text-xl font-bold text-blue-300 mt-4 mb-3">{cleaned}</h3>)
+        } else {
+          elements.push(<p key={`p-${i}`} className="text-gray-300 my-2">{cleaned}</p>)
+        }
+      }
+    }
+    
+    // 处理最后一个岗位块
+    flushJobBlock()
+    
+    return elements
   }
 
   return (
@@ -737,42 +913,18 @@ function RecruitAgent() {
         <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20 space-y-6">
           {/* AI 回答 */}
           {result.answer && (
-            <div className="bg-blue-500/20 border border-blue-500/50 rounded-xl p-6">
-              <h3 className="text-xl font-bold text-blue-400 mb-3">🤖 AI 智能回答</h3>
-              <p className="text-gray-200 leading-relaxed whitespace-pre-wrap">{result.answer}</p>
-            </div>
-          )}
-
-          {/* 岗位列表 */}
-          {result.jobs && result.jobs.length > 0 && (
-            <div>
-              <h3 className="text-xl font-bold text-white mb-4">📋 相关岗位 ({result.jobs.length})</h3>
-              <div className="space-y-4">
-                {result.jobs.map(job => (
-                  <div key={job.id} className="bg-white/10 rounded-xl p-5 border border-white/20 hover:border-blue-400 transition-all">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h4 className="text-lg font-bold text-white">{job.title}</h4>
-                        <p className="text-gray-400 text-sm mt-1">{job.company} · {job.location}</p>
-                      </div>
-                      <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm">{job.type}</span>
-                    </div>
-                    {job.referralCode && (
-                      <div className="flex items-center gap-2 mt-3">
-                        <span className="text-sm text-gray-300">内推码:</span>
-                        <code className="bg-gray-800 text-green-400 px-3 py-1 rounded">{job.referralCode}</code>
-                        <button onClick={() => copyCode(job.referralCode!)} className="text-blue-400 hover:text-blue-300 text-sm">
-                          📋 复制
-                        </button>
-                      </div>
-                    )}
-                    {job.applyUrl && (
-                      <a href={job.applyUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-blue-400 hover:text-blue-300 text-sm">
-                        🔗 查看详情 →
-                      </a>
-                    )}
-                  </div>
-                ))}
+            <div className="bg-gradient-to-br from-blue-900/40 to-cyan-900/40 border border-blue-500/30 rounded-2xl p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-blue-300">🤖 AI 智能回答</h3>
+                <button 
+                  onClick={() => copyToClipboard(result.answer)}
+                  className="bg-blue-500/30 hover:bg-blue-500/50 text-blue-200 px-4 py-2 rounded-lg transition-all text-sm"
+                >
+                  📋 复制全部
+                </button>
+              </div>
+              <div className="max-h-[600px] overflow-y-auto pr-2">
+                {formatAnswer(result.answer)}
               </div>
             </div>
           )}
