@@ -750,15 +750,50 @@ function RecruitAgent() {
     navigator.clipboard.writeText(text).then(() => alert('✅ 已复制到剪贴板'))
   }
 
-  // 清理文本中的 Markdown 格式符号
+  // 清理文本中的 Markdown 格式符号（保留链接）
   const cleanText = (text: string) => {
     return text
       .replace(/\*\*/g, '')      // 去掉 **粗体**
       .replace(/\*/g, '')        // 去掉 *斜体*
       .replace(/`/g, '')         // 去掉 `代码`
       .replace(/#+\s*/g, '')     // 去掉 # 标题
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // 转换链接为纯文本
       .trim()
+  }
+
+  // 渲染文本，将 Markdown 链接转换为可点击的 <a> 标签
+  const renderTextWithLinks = (text: string) => {
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g
+    const parts: (string | JSX.Element)[] = []
+    let lastIndex = 0
+    let match
+    let linkIndex = 0
+
+    while ((match = linkRegex.exec(text)) !== null) {
+      // 添加链接前的文本
+      if (match.index > lastIndex) {
+        parts.push(text.slice(lastIndex, match.index))
+      }
+      // 添加可点击的链接
+      parts.push(
+        <a 
+          key={`link-${linkIndex++}`}
+          href={match[2]} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-400/50 hover:decoration-cyan-300 transition-colors"
+        >
+          {match[1]}
+        </a>
+      )
+      lastIndex = match.index + match[0].length
+    }
+    
+    // 添加剩余文本
+    if (lastIndex < text.length) {
+      parts.push(text.slice(lastIndex))
+    }
+    
+    return parts.length > 0 ? parts : text
   }
 
   // 格式化 AI 回答，美化输出
@@ -789,19 +824,19 @@ function RecruitAgent() {
                 const labelMatch = content.match(/^([^：:]+)[：:]\s*(.*)$/)
                 if (labelMatch) {
                   const label = cleanText(labelMatch[1])
-                  const value = cleanText(labelMatch[2])
+                  const rawValue = trimmed.replace(/^[-•]\s*/, '').replace(/^[^：:]+[：:]\s*/, '')
                   return (
                     <div key={i} className="flex items-start gap-3 my-2">
                       <span className="text-cyan-400 font-medium min-w-[70px] text-sm">{label}</span>
-                      <span className="text-gray-200 flex-1">{value}</span>
+                      <span className="text-gray-200 flex-1">{renderTextWithLinks(cleanText(rawValue))}</span>
                     </div>
                   )
                 }
-                return <p key={i} className="text-gray-300 ml-2 my-1">• {content}</p>
+                return <p key={i} className="text-gray-300 ml-2 my-1">• {renderTextWithLinks(content)}</p>
               }
               // 普通行
               const cleaned = cleanText(trimmed)
-              return cleaned ? <p key={i} className="text-gray-300 my-1">{cleaned}</p> : null
+              return cleaned ? <p key={i} className="text-gray-300 my-1">{renderTextWithLinks(cleaned)}</p> : null
             })}
           </div>
         )
@@ -841,13 +876,13 @@ function RecruitAgent() {
         const cleaned = cleanText(trimmed)
         if (cleaned.startsWith('根据') || cleaned.startsWith('以下是') || cleaned.includes('招聘信息') || cleaned.includes('岗位信息')) {
           elements.push(
-            <p key={`intro-${i}`} className="text-gray-300 mb-4 pb-3 border-b border-white/10">{cleaned}</p>
+            <p key={`intro-${i}`} className="text-gray-300 mb-4 pb-3 border-b border-white/10">{renderTextWithLinks(cleaned)}</p>
           )
         } else if (trimmed.match(/^#+\s/)) {
           // Markdown 标题
-          elements.push(<h3 key={`h-${i}`} className="text-xl font-bold text-blue-300 mt-4 mb-3">{cleaned}</h3>)
+          elements.push(<h3 key={`h-${i}`} className="text-xl font-bold text-blue-300 mt-4 mb-3">{renderTextWithLinks(cleaned)}</h3>)
         } else {
-          elements.push(<p key={`p-${i}`} className="text-gray-300 my-2">{cleaned}</p>)
+          elements.push(<p key={`p-${i}`} className="text-gray-300 my-2">{renderTextWithLinks(cleaned)}</p>)
         }
       }
     }
